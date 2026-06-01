@@ -1,0 +1,4191 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>競艇スコアリング予想</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  :root {
+    --bg: #0d1117;
+    --panel: #161b22;
+    --panel-2: #1c2330;
+    --border: #2d3645;
+    --text: #e6edf3;
+    --muted: #8b949e;
+    --accent: #58a6ff;
+    --accent-2: #f0883e;
+    --success: #3fb950;
+    --danger: #f85149;
+    --warning: #d29922;
+    --input-bg: #0d1117;
+    --input-focus: #1f6feb;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Yu Gothic UI", "Meiryo", sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.5;
+    min-height: 100vh;
+    padding: 20px;
+  }
+  header {
+    background: linear-gradient(135deg, #1f6feb 0%, #8957e5 100%);
+    padding: 20px 24px;
+    border-radius: 12px;
+    margin-bottom: 20px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+  }
+  header h1 {
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+  }
+  header p { color: rgba(255,255,255,0.85); font-size: 13px; margin-top: 4px; }
+
+  nav {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 20px;
+    background: var(--panel);
+    padding: 6px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    flex-wrap: wrap;
+  }
+  nav button {
+    flex: 1;
+    min-width: 100px;
+    padding: 10px 14px;
+    background: transparent;
+    color: var(--muted);
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 500;
+    transition: all 0.2s;
+    font-family: inherit;
+  }
+  nav button:hover { background: var(--panel-2); color: var(--text); }
+  nav button.active {
+    background: var(--accent);
+    color: white;
+  }
+
+  .toolbar {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+  }
+  .btn {
+    padding: 8px 14px;
+    background: var(--panel);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 13px;
+    font-family: inherit;
+    transition: all 0.15s;
+  }
+  .btn:hover { background: var(--panel-2); border-color: var(--accent); }
+  .btn-primary { background: var(--accent); border-color: var(--accent); color: white; }
+  .btn-primary:hover { background: #4493e6; }
+  .btn-success { background: var(--success); border-color: var(--success); color: white; }
+  .btn-success:hover { background: #2ea043; }
+  .btn-warn { background: var(--warning); border-color: var(--warning); color: white; }
+  .btn-warn:hover { background: #b8860b; }
+  .btn-danger { background: var(--danger); border-color: var(--danger); color: white; }
+  .btn-danger:hover { background: #d73a37; }
+
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 20px;
+    margin-bottom: 16px;
+  }
+  .panel h2 {
+    font-size: 16px;
+    color: var(--accent);
+    margin-bottom: 14px;
+    padding-bottom: 8px;
+    border-bottom: 2px solid var(--border);
+  }
+  .panel h3 {
+    font-size: 14px;
+    color: var(--accent-2);
+    margin: 14px 0 8px;
+  }
+
+  .grid {
+    display: grid;
+    gap: 12px;
+  }
+  .grid-3 { grid-template-columns: repeat(3, 1fr); }
+  .grid-4 { grid-template-columns: repeat(4, 1fr); }
+
+  .field {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .field label {
+    font-size: 11px;
+    color: var(--muted);
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  input, select {
+    background: var(--input-bg);
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    padding: 7px 10px;
+    color: var(--text);
+    font-size: 13px;
+    font-family: inherit;
+    transition: border-color 0.15s;
+    width: 100%;
+  }
+  input:focus, select:focus {
+    outline: none;
+    border-color: var(--input-focus);
+  }
+  input[type="number"] { -moz-appearance: textfield; }
+  input::-webkit-outer-spin-button, input::-webkit-inner-spin-button {
+    -webkit-appearance: none; margin: 0;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+  th, td {
+    padding: 8px 10px;
+    text-align: center;
+    border-bottom: 1px solid var(--border);
+  }
+  th {
+    background: var(--panel-2);
+    color: var(--accent);
+    font-weight: 600;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    position: sticky;
+    top: 0;
+  }
+  td input { padding: 5px 6px; font-size: 12px; }
+  tr:hover td { background: rgba(255,255,255,0.02); }
+  .table-wrap {
+    overflow-x: auto;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+  }
+
+  .score-cell {
+    font-weight: 700;
+    font-size: 14px;
+  }
+  .score-high { color: var(--success); }
+  .score-mid { color: var(--warning); }
+  .score-low { color: var(--danger); }
+
+  .rank-1 { background: rgba(63, 185, 80, 0.15); }
+  .rank-2 { background: rgba(210, 153, 34, 0.1); }
+  .rank-3 { background: rgba(88, 166, 255, 0.08); }
+
+  .verdict {
+    padding: 16px;
+    border-radius: 8px;
+    margin-top: 12px;
+    text-align: center;
+    font-weight: 700;
+    font-size: 18px;
+  }
+  .verdict-honmei {
+    background: linear-gradient(135deg, rgba(63, 185, 80, 0.2), rgba(63, 185, 80, 0.05));
+    border: 1px solid var(--success);
+    color: var(--success);
+  }
+  .verdict-yuri {
+    background: linear-gradient(135deg, rgba(210, 153, 34, 0.2), rgba(210, 153, 34, 0.05));
+    border: 1px solid var(--warning);
+    color: var(--warning);
+  }
+  .verdict-haran {
+    background: linear-gradient(135deg, rgba(248, 81, 73, 0.2), rgba(248, 81, 73, 0.05));
+    border: 1px solid var(--danger);
+    color: var(--danger);
+  }
+
+  .stat-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 12px;
+  }
+  .stat-card {
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px;
+  }
+  .stat-card .label {
+    font-size: 11px;
+    color: var(--muted);
+    text-transform: uppercase;
+    margin-bottom: 6px;
+    letter-spacing: 0.5px;
+  }
+  .stat-card .value {
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--text);
+  }
+  .stat-card .value.pos { color: var(--success); }
+  .stat-card .value.neg { color: var(--danger); }
+
+  .recommend {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 12px;
+    margin-top: 14px;
+  }
+  .rec-card {
+    background: linear-gradient(135deg, var(--panel-2), var(--panel));
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px;
+    text-align: center;
+  }
+  .rec-card .role {
+    font-size: 11px;
+    color: var(--muted);
+    margin-bottom: 6px;
+  }
+  .rec-card .boat-num {
+    font-size: 32px;
+    font-weight: 800;
+    color: var(--accent);
+  }
+  .rec-card .boat-name { font-size: 12px; color: var(--muted); margin-top: 4px; }
+
+  .formation {
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px;
+    margin-top: 12px;
+    text-align: center;
+  }
+  .formation .label { font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+  .formation .pattern {
+    font-size: 22px;
+    font-weight: 700;
+    font-family: "SF Mono", Menlo, monospace;
+    color: var(--accent-2);
+    letter-spacing: 1px;
+  }
+
+  .hide { display: none !important; }
+
+  .toast {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    background: var(--success);
+    color: white;
+    padding: 12px 20px;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    opacity: 0;
+    transform: translateY(10px);
+    transition: all 0.3s;
+    z-index: 1000;
+  }
+  .toast.show { opacity: 1; transform: translateY(0); }
+  .toast.error { background: var(--danger); }
+
+  details {
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 14px;
+    margin-top: 10px;
+  }
+  details summary {
+    cursor: pointer;
+    font-weight: 600;
+    color: var(--accent);
+    font-size: 13px;
+  }
+  details[open] summary { margin-bottom: 10px; }
+
+  .note {
+    font-size: 12px;
+    color: var(--muted);
+    font-style: italic;
+    margin-top: 8px;
+  }
+
+  /* ============ Tag System ============ */
+  .boat-tags-section {
+    margin-top: 16px;
+    padding: 14px;
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+  }
+  .boat-tags-section h3 {
+    font-size: 13px;
+    color: var(--accent-2);
+    margin-bottom: 10px;
+  }
+  .boat-tags-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px;
+    border-bottom: 1px solid var(--border);
+    flex-wrap: wrap;
+  }
+  .boat-tags-row:last-child { border-bottom: none; }
+  .boat-tags-label {
+    min-width: 90px;
+    font-weight: 700;
+    color: var(--accent);
+    font-size: 13px;
+  }
+  .boat-tags-label .player-name {
+    color: var(--muted);
+    font-weight: 400;
+    font-size: 11px;
+    margin-left: 6px;
+  }
+  .tags-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    flex: 1;
+    min-width: 0;
+  }
+  .tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 8px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    font-size: 12px;
+    transition: all 0.15s;
+    cursor: default;
+  }
+  .tag.active {
+    background: rgba(88, 166, 255, 0.15);
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+  .tag.positive { border-color: rgba(63, 185, 80, 0.5); }
+  .tag.positive.active {
+    background: rgba(63, 185, 80, 0.15);
+    border-color: var(--success);
+    color: var(--success);
+  }
+  .tag.negative { border-color: rgba(248, 81, 73, 0.5); }
+  .tag.negative.active {
+    background: rgba(248, 81, 73, 0.15);
+    border-color: var(--danger);
+    color: var(--danger);
+  }
+  .tag-toggle {
+    cursor: pointer;
+    user-select: none;
+    flex: 1;
+  }
+  .tag-points {
+    font-weight: 700;
+    margin-left: 2px;
+  }
+  .tag-edit-btn, .tag-remove-btn {
+    background: transparent;
+    border: none;
+    color: var(--muted);
+    cursor: pointer;
+    font-size: 11px;
+    padding: 0 2px;
+    line-height: 1;
+  }
+  .tag-edit-btn:hover { color: var(--accent); }
+  .tag-remove-btn:hover { color: var(--danger); }
+  .tag-add-btn {
+    padding: 4px 10px;
+    background: transparent;
+    border: 1px dashed var(--border);
+    border-radius: 14px;
+    color: var(--muted);
+    cursor: pointer;
+    font-size: 12px;
+    transition: all 0.15s;
+    font-family: inherit;
+  }
+  .tag-add-btn:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+    border-style: solid;
+  }
+
+  /* Tag editor modal */
+  .modal-bg {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.7);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+    padding: 20px;
+  }
+  .modal {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+    max-width: 480px;
+    width: 100%;
+    max-height: 90vh;
+    overflow-y: auto;
+  }
+  .modal h3 {
+    color: var(--accent);
+    margin-bottom: 14px;
+    font-size: 16px;
+  }
+  .modal .field { margin-bottom: 12px; }
+  .modal .suggest-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 14px;
+  }
+  .modal .suggest-grid button {
+    padding: 4px 10px;
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    border-radius: 14px;
+    cursor: pointer;
+    font-size: 12px;
+    font-family: inherit;
+  }
+  .modal .suggest-grid button:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+  .modal-actions {
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+    margin-top: 16px;
+  }
+
+  @media (max-width: 768px) {
+    .grid-3, .grid-4 { grid-template-columns: 1fr 1fr; }
+    body { padding: 12px; }
+    table { font-size: 11px; }
+    th, td { padding: 6px 4px; }
+    .boat-tags-label { min-width: 70px; font-size: 12px; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>競艇スコアリング予想</h1>
+  <p>スロット脳で組み立てる、自分なりの予想モデル</p>
+</header>
+
+<div class="toolbar">
+  <button class="btn btn-primary" onclick="saveJSON()">💾 JSONで保存</button>
+  <button class="btn" onclick="document.getElementById('loadFile').click()">📂 JSON読み込み</button>
+  <input type="file" id="loadFile" accept=".json" style="display:none" onchange="loadJSON(event)">
+  <button class="btn" onclick="openUrlLoadModal()">📡 URL読み込み</button>
+  <button class="btn btn-success" onclick="exportExcel()">📊 Excelエクスポート</button>
+  <button class="btn btn-warn" onclick="if(confirm('全データを初期化します。よろしいですか？'))resetAll()">🔄 リセット</button>
+</div>
+
+<nav>
+  <button class="tab-btn active" data-tab="score">スコア表</button>
+  <button class="tab-btn" data-tab="predictions">予想記録</button>
+  <button class="tab-btn" data-tab="results">結果記録</button>
+  <button class="tab-btn" data-tab="summary">集計</button>
+  <button class="tab-btn" data-tab="players">選手DB</button>
+  <button class="tab-btn" data-tab="trends">会場トレンド</button>
+  <button class="tab-btn" data-tab="settings">スコア設定</button>
+  <button class="tab-btn" data-tab="venues">会場メモ</button>
+  <button class="tab-btn" data-tab="help">使い方</button>
+</nav>
+
+<!-- ============ Tab: スコア表 ============ -->
+<section id="tab-score" class="tab">
+  <div class="panel">
+    <h2>レース情報</h2>
+    <div class="grid grid-3">
+      <div class="field"><label>日付</label><input type="date" id="race-date"></div>
+      <div class="field"><label>会場</label><select id="race-venue"></select></div>
+      <div class="field"><label>レース番号</label>
+        <select id="race-no">
+          <option>1R</option><option>2R</option><option>3R</option><option>4R</option><option>5R</option><option>6R</option>
+          <option>7R</option><option>8R</option><option>9R</option><option>10R</option><option>11R</option><option>12R</option>
+        </select>
+      </div>
+      <div class="field"><label>天候</label>
+        <select id="race-weather">
+          <option>晴</option><option>曇</option><option>雨</option><option>雪</option>
+        </select>
+      </div>
+      <div class="field"><label>風向</label>
+        <select id="race-windDir">
+          <option>無風</option><option>追い風</option><option>向かい風</option><option>横風</option>
+        </select>
+      </div>
+      <div class="field"><label>風速 (m/s)</label><input type="number" id="race-windSpeed" value="0" step="0.5"></div>
+      <div class="field"><label>波高 (cm)</label><input type="number" id="race-wave" value="0"></div>
+      <div class="field"><label>気温 (℃)</label><input type="number" id="race-temp" value="20"></div>
+      <div class="field"><label>水温 (℃)</label><input type="number" id="race-waterTemp" value="20"></div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>各艇データ入力</h2>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>艇番</th><th>選手名</th><th>級別</th><th>全国勝率</th><th>当地勝率</th>
+            <th>モーター2連率(%)</th><th>平均ST</th><th>F持ち</th><th>チルト</th>
+          </tr>
+        </thead>
+        <tbody id="boats-tbody"></tbody>
+      </table>
+    </div>
+    <p class="note">※級別 A1/A2/B1/B2、F持ちは直近フライング歴ありなら ✓</p>
+
+    <div class="boat-tags-section">
+      <h3>🏷️ 各艇の特徴タグ（クリックでON/OFF・点数反映）</h3>
+      <p class="note" style="margin-bottom:10px">選手名を入力すると、その選手のタグが自動で復元されます。タグはレース予想ごとに記録されます。</p>
+      <div id="boat-tags-container"></div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>スコア計算結果</h2>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>艇番</th><th>級別</th><th>勝率</th><th>当地</th><th>モーター</th>
+            <th>ST</th><th>F減点</th><th>チルト</th><th>タグ</th><th>基本</th><th>環境</th><th>最終</th><th>順位</th>
+          </tr>
+        </thead>
+        <tbody id="scores-tbody"></tbody>
+      </table>
+    </div>
+    <div class="verdict" id="verdict">―</div>
+    <div class="recommend" id="recommend"></div>
+    <div class="formation">
+      <div class="label">フォーメーション例（参考）</div>
+      <div class="pattern" id="formation-pattern">―</div>
+    </div>
+  </div>
+
+  <div class="panel" id="past-data-panel">
+    <h2>📊 過去データ参考（現在の会場）</h2>
+    <div style="margin-bottom:12px; display:flex; gap:8px; align-items:center; flex-wrap:wrap">
+      <label style="font-size:13px; color:var(--muted)">期間:</label>
+      <select id="score-past-period" style="max-width:160px">
+        <option value="7">直近1週間</option>
+        <option value="30" selected>直近1ヶ月</option>
+        <option value="90">直近3ヶ月</option>
+        <option value="all">全期間</option>
+      </select>
+      <label style="font-size:13px; color:var(--muted)">グレード:</label>
+      <select id="score-past-grade" style="max-width:120px">
+        <option value="all" selected>すべて</option>
+        <option value="SG">SG</option>
+        <option value="PG1">PG1</option>
+        <option value="G1">G1</option>
+        <option value="G2">G2</option>
+        <option value="G3">G3</option>
+        <option value="一般">一般戦</option>
+      </select>
+      <label style="font-size:13px; color:var(--muted)">レース種別:</label>
+      <select id="score-past-racetype" style="max-width:140px">
+        <option value="all" selected>すべて</option>
+        <option value="予選">予選</option>
+        <option value="特選">特選/ドリーム</option>
+        <option value="一般">一般</option>
+        <option value="準優勝戦">準優勝戦</option>
+        <option value="優勝戦">優勝戦</option>
+      </select>
+      <label style="font-size:13px; color:var(--muted)">R番号:</label>
+      <select id="score-past-raceno" style="max-width:140px">
+        <option value="auto" selected>自動(スコア表のR)</option>
+        <option value="all">すべて</option>
+        <option value="1">1R</option><option value="2">2R</option><option value="3">3R</option>
+        <option value="4">4R</option><option value="5">5R</option><option value="6">6R</option>
+        <option value="7">7R</option><option value="8">8R</option><option value="9">9R</option>
+        <option value="10">10R</option><option value="11">11R</option><option value="12">12R</option>
+      </select>
+      <span class="note" id="score-past-info" style="margin:0"></span>
+    </div>
+    <p class="note" style="margin-bottom:10px">※R番号「自動」を選ぶと、スコア表で選んでいるレース番号と同じRの過去データだけが集計されます。同会場・同R番号の過去傾向で精度UP。</p>
+    <div id="score-past-content">
+      <p class="note">過去レース結果がインポートされていません。「会場トレンド」タブから読み込んでください。</p>
+    </div>
+  </div>
+
+  <div class="panel" id="prediction-patterns-panel">
+    <h2>🎯 予想パターン入力</h2>
+    <p class="note" style="margin-bottom:10px">ツール予測と自分の予想を並べて比較できます。複数パターン作って買い目を組めます。</p>
+
+    <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap">
+      <button class="btn btn-primary" onclick="addPredictionPattern('tool')">＋ ツール予測を取り込む</button>
+      <button class="btn" onclick="addPredictionPattern('manual')">＋ 自分の予想を追加</button>
+      <button class="btn" onclick="addPredictionPattern('past')">＋ 過去データ予測を取り込む</button>
+    </div>
+
+    <div id="prediction-patterns-list"></div>
+
+    <div id="prediction-summary" style="margin-top:14px"></div>
+  </div>
+
+  <div class="panel">
+    <h2>この予想を記録する</h2>
+    <div class="grid grid-3">
+      <div class="field"><label>実際に買った点数</label><input type="number" id="rec-points" value="0"></div>
+      <div class="field"><label>1点あたりの投資額(円)</label><input type="number" id="rec-bet" value="0"></div>
+      <div class="field"><label>メモ</label><input type="text" id="rec-memo" placeholder="気づいたことなど"></div>
+    </div>
+    <div style="margin-top:12px; display:flex; gap:8px;">
+      <button class="btn btn-primary" onclick="savePrediction()">予想記録に追加</button>
+    </div>
+  </div>
+</section>
+
+<!-- ============ Tab: 予想記録 ============ -->
+<section id="tab-predictions" class="tab hide">
+  <div class="panel">
+    <h2>予想記録 (<span id="pred-count">0</span>件)</h2>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>日付</th><th>会場</th><th>R</th><th>1号艇スコア</th><th>判定</th>
+            <th>本命</th><th>対抗</th><th>3番手</th><th>4番手</th><th>買い目</th><th>点数</th><th>投資</th><th>メモ</th><th>操作</th>
+          </tr>
+        </thead>
+        <tbody id="predictions-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- ============ Tab: 結果記録 ============ -->
+<section id="tab-results" class="tab hide">
+  <div class="panel">
+    <h2>結果記録</h2>
+    <p class="note" style="margin-bottom:14px">予想記録の各行に結果を入力します。本命的中で✓、回収額(円)を入力すると損益が自動計算されます。</p>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>日付</th><th>会場</th><th>R</th><th>予想本命</th><th>1着</th><th>2着</th><th>3着</th>
+            <th>3連単配当</th><th>本命的中</th><th>投資額</th><th>回収額</th><th>損益</th>
+          </tr>
+        </thead>
+        <tbody id="results-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- ============ Tab: 集計 ============ -->
+<section id="tab-summary" class="tab hide">
+  <div class="panel">
+    <h2>全体成績</h2>
+    <div class="stat-grid" id="overall-stats"></div>
+  </div>
+
+  <div class="panel">
+    <h2>会場別成績</h2>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>会場</th><th>レース数</th><th>的中数</th><th>的中率</th><th>損益</th></tr>
+        </thead>
+        <tbody id="venue-stats"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>スコア帯別成績</h2>
+    <p class="note" style="margin-bottom:14px">1号艇のスコアでレースを分類した成績</p>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>スコア帯</th><th>レース数</th><th>的中数</th><th>的中率</th><th>損益</th></tr>
+        </thead>
+        <tbody id="band-stats"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>判定別成績</h2>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>判定</th><th>レース数</th><th>的中数</th><th>的中率</th><th>損益</th></tr>
+        </thead>
+        <tbody id="verdict-stats"></tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- ============ Tab: スコア設定 ============ -->
+<section id="tab-settings" class="tab hide">
+  <div class="panel">
+    <h2>スコア配点設定</h2>
+    <p class="note" style="margin-bottom:14px">外れたパターンを見ながら配点を調整して、自分なりのモデルを育てる場所です</p>
+
+    <h3>① 級別点</h3>
+    <div class="grid grid-4">
+      <div class="field"><label>A1</label><input type="number" id="cfg-classA1" step="0.5"></div>
+      <div class="field"><label>A2</label><input type="number" id="cfg-classA2" step="0.5"></div>
+      <div class="field"><label>B1</label><input type="number" id="cfg-classB1" step="0.5"></div>
+      <div class="field"><label>B2</label><input type="number" id="cfg-classB2" step="0.5"></div>
+    </div>
+
+    <h3>② 勝率点（閾値以上で配点）</h3>
+    <div class="grid grid-4">
+      <div class="field"><label>7.0以上</label><input type="number" id="cfg-win7" step="0.5"></div>
+      <div class="field"><label>6.0以上</label><input type="number" id="cfg-win6" step="0.5"></div>
+      <div class="field"><label>5.0以上</label><input type="number" id="cfg-win5" step="0.5"></div>
+      <div class="field"><label>5.0未満</label><input type="number" id="cfg-win0" step="0.5"></div>
+    </div>
+
+    <h3>③ 当地勝率ボーナス</h3>
+    <div class="grid grid-3">
+      <div class="field"><label>当地&gt;全国</label><input type="number" id="cfg-localBonus" step="0.5"></div>
+    </div>
+
+    <h3>④ モーター2連率点</h3>
+    <div class="grid grid-4">
+      <div class="field"><label>45%以上</label><input type="number" id="cfg-motor45" step="0.5"></div>
+      <div class="field"><label>40%以上</label><input type="number" id="cfg-motor40" step="0.5"></div>
+      <div class="field"><label>35%以上</label><input type="number" id="cfg-motor35" step="0.5"></div>
+      <div class="field"><label>35%未満</label><input type="number" id="cfg-motor0" step="0.5"></div>
+    </div>
+
+    <h3>⑤ 平均ST点（閾値以下で配点）</h3>
+    <div class="grid grid-4">
+      <div class="field"><label>0.14以下</label><input type="number" id="cfg-st14" step="0.5"></div>
+      <div class="field"><label>0.16以下</label><input type="number" id="cfg-st16" step="0.5"></div>
+      <div class="field"><label>0.18以下</label><input type="number" id="cfg-st18" step="0.5"></div>
+      <div class="field"><label>0.18超</label><input type="number" id="cfg-st99" step="0.5"></div>
+    </div>
+
+    <h3>⑥ F持ち減点 / チルト警戒点</h3>
+    <div class="grid grid-3">
+      <div class="field"><label>F持ち減点</label><input type="number" id="cfg-fPenalty" step="0.5"></div>
+      <div class="field"><label>2-6号艇チルト0.5度以上</label><input type="number" id="cfg-tiltBonus" step="0.5"></div>
+    </div>
+
+    <h3>⑦ 環境補正（1号艇への影響）</h3>
+    <div class="grid grid-4">
+      <div class="field"><label>向かい風</label><input type="number" id="cfg-envHead" step="0.5"></div>
+      <div class="field"><label>追い風</label><input type="number" id="cfg-envTail" step="0.5"></div>
+      <div class="field"><label>追い風4m以上</label><input type="number" id="cfg-envTailStrong" step="0.5"></div>
+      <div class="field"><label>波高10cm以上</label><input type="number" id="cfg-envWave" step="0.5"></div>
+    </div>
+
+    <div style="margin-top:20px; display:flex; gap:8px;">
+      <button class="btn btn-success" onclick="saveSettings()">設定を保存</button>
+      <button class="btn" onclick="resetSettings()">デフォルトに戻す</button>
+    </div>
+  </div>
+</section>
+
+<!-- ============ Tab: 選手DB ============ -->
+<section id="tab-players" class="tab hide">
+  <div class="panel">
+    <h2>選手データベース</h2>
+    <p class="note" style="margin-bottom:14px">公式の「レーサー期別成績」をインポート。選手名を入力すると、スコア表で自動補完されます。</p>
+
+    <div class="stat-grid" style="margin-bottom:16px">
+      <div class="stat-card"><div class="label">登録選手数</div><div class="value" id="player-count">0</div></div>
+      <div class="stat-card"><div class="label">最終更新</div><div class="value" style="font-size:14px" id="player-updated">―</div></div>
+    </div>
+
+    <div style="margin-bottom:16px">
+      <div style="font-size:12px;color:var(--muted);margin-bottom:6px;font-weight:600">インポート済みの期</div>
+      <div id="import-history" style="display:flex;flex-wrap:wrap;gap:6px;align-items:center">
+        <span style="color:var(--muted)">未インポート</span>
+      </div>
+    </div>
+
+    <h3>インポート</h3>
+    <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:10px">
+      <button class="btn btn-primary" onclick="document.getElementById('import-txt').click()">📄 固定長TXT（公式形式）</button>
+      <input type="file" id="import-txt" accept=".txt,.TXT" style="display:none" onchange="importTXT(event)">
+      <button class="btn btn-primary" onclick="document.getElementById('import-csv').click()">📊 CSV / Excel</button>
+      <input type="file" id="import-csv" accept=".csv,.xlsx,.xls" style="display:none" onchange="importCSV(event)">
+      <button class="btn btn-danger" onclick="if(confirm('全選手データを削除しますか？'))clearPlayers()">🗑️ 全削除</button>
+    </div>
+    <p class="note">※TXTはShift_JIS/UTF-8自動判定（公式のfanXXXX.txtそのまま）。CSVは1行目にヘッダー（登番,名前,級,勝率…）が必要。<br>
+    ※スコア表の選手名欄では「鈴木幸夫」「2876」（登番）どちらでも検索可。スペース付き名前も詰めて入れればOK。</p>
+  </div>
+
+  <div class="panel">
+    <h2>選手一覧</h2>
+    <div style="margin-bottom:12px">
+      <input type="text" id="player-search" placeholder="名前または登番で検索…" style="width:100%; max-width:400px">
+    </div>
+    <div class="table-wrap" style="max-height:600px; overflow-y:auto">
+      <table>
+        <thead>
+          <tr>
+            <th>登番</th><th>名前</th><th>支部</th><th>級</th><th>勝率</th><th>平均ST</th>
+            <th>1コ複勝率</th><th>2コ複勝率</th><th>3コ複勝率</th><th>4コ複勝率</th><th>5コ複勝率</th><th>6コ複勝率</th>
+            <th>F合計</th><th>操作</th>
+          </tr>
+        </thead>
+        <tbody id="players-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>自動タグ付与ルール</h2>
+    <p class="note" style="margin-bottom:14px">選手DBから自動補完するときに、以下のルールでタグが自動付与されます。点数は調整可能。</p>
+    <div class="grid grid-3">
+      <div class="field"><label>逃げ巧者（1コ複勝率≥）</label>
+        <div style="display:flex;gap:6px"><input type="number" id="auto-nige-th" step="1" value="70" style="flex:1"><input type="number" id="auto-nige-pt" step="0.5" value="2" style="width:60px"></div>
+      </div>
+      <div class="field"><label>2コース巧者（2コ複勝率≥）</label>
+        <div style="display:flex;gap:6px"><input type="number" id="auto-2c-th" step="1" value="50" style="flex:1"><input type="number" id="auto-2c-pt" step="0.5" value="1" style="width:60px"></div>
+      </div>
+      <div class="field"><label>3コース巧者（3コ複勝率≥）</label>
+        <div style="display:flex;gap:6px"><input type="number" id="auto-3c-th" step="1" value="50" style="flex:1"><input type="number" id="auto-3c-pt" step="0.5" value="1" style="width:60px"></div>
+      </div>
+      <div class="field"><label>アウト巧者（5or6コ複勝率≥）</label>
+        <div style="display:flex;gap:6px"><input type="number" id="auto-out-th" step="1" value="25" style="flex:1"><input type="number" id="auto-out-pt" step="0.5" value="1.5" style="width:60px"></div>
+      </div>
+      <div class="field"><label>スタート巧者（平均ST≤）</label>
+        <div style="display:flex;gap:6px"><input type="number" id="auto-st-th" step="0.01" value="0.14" style="flex:1"><input type="number" id="auto-st-pt" step="0.5" value="1" style="width:60px"></div>
+      </div>
+      <div class="field"><label>F多め（F合計≥）</label>
+        <div style="display:flex;gap:6px"><input type="number" id="auto-f-th" step="1" value="3" style="flex:1"><input type="number" id="auto-f-pt" step="0.5" value="-1" style="width:60px"></div>
+      </div>
+      <div class="field"><label>地元（支部=会場）</label>
+        <div style="display:flex;gap:6px"><input type="text" disabled value="支部一致" style="flex:1"><input type="number" id="auto-local-pt" step="0.5" value="1" style="width:60px"></div>
+      </div>
+    </div>
+    <p class="note" style="margin-top:10px">左=閾値、右=点数。これらは自動補完時に「OFF」状態でタグ付与されるので、レースごとに採用するか選べます。</p>
+    <button class="btn btn-success" onclick="saveAutoTagRules()" style="margin-top:10px">ルールを保存</button>
+  </div>
+</section>
+
+<!-- ============ Tab: 会場トレンド ============ -->
+<section id="tab-trends" class="tab hide">
+  <div class="panel">
+    <h2>過去レース結果のインポート</h2>
+    <p class="note" style="margin-bottom:14px">公式の競走成績ファイル (K***.TXT) を読み込むと、会場別の傾向データが自動集計されます。1ファイル=1日分(全会場)。</p>
+
+    <div class="stat-grid" style="margin-bottom:16px">
+      <div class="stat-card"><div class="label">蓄積レース数</div><div class="value" id="race-count">0</div></div>
+      <div class="stat-card"><div class="label">期間</div><div class="value" style="font-size:14px" id="race-range">―</div></div>
+      <div class="stat-card"><div class="label">会場数</div><div class="value" id="race-venue-count">0</div></div>
+    </div>
+
+    <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:10px">
+      <button class="btn btn-primary" onclick="document.getElementById('import-race').click()">📄 競走成績TXTをインポート</button>
+      <input type="file" id="import-race" accept=".txt,.TXT" multiple style="display:none" onchange="importRaceResults(event)">
+      <button class="btn btn-danger" onclick="if(confirm('全レース結果を削除しますか？'))clearRaceResults()">🗑️ 全削除</button>
+    </div>
+    <p class="note">※ファイル名「K240101.TXT」から日付を自動検出します。複数選択して一気に読み込み可能。</p>
+  </div>
+
+  <div class="panel">
+    <h2>会場別の傾向（直近データから集計）</h2>
+    <div style="margin-bottom:12px; display:flex; gap:8px; align-items:center; flex-wrap:wrap">
+      <label style="font-size:13px; color:var(--muted)">期間:</label>
+      <select id="trend-period" style="max-width:180px">
+        <option value="7" selected>直近1週間</option>
+        <option value="30">直近1ヶ月</option>
+        <option value="90">直近3ヶ月</option>
+        <option value="all">全期間</option>
+        <option value="custom">カスタム期間</option>
+      </select>
+      <div id="trend-custom-range" style="display:none; gap:6px; align-items:center">
+        <input type="date" id="trend-from" style="max-width:160px">
+        <span style="color:var(--muted)">〜</span>
+        <input type="date" id="trend-to" style="max-width:160px">
+      </div>
+    </div>
+    <div style="margin-bottom:12px; display:flex; gap:8px; align-items:center; flex-wrap:wrap">
+      <label style="font-size:13px; color:var(--muted)">グレード:</label>
+      <select id="trend-grade" style="max-width:140px">
+        <option value="all">すべて</option>
+        <option value="SG">SG</option>
+        <option value="PG1">PG1</option>
+        <option value="G1">G1</option>
+        <option value="G2">G2</option>
+        <option value="G3">G3</option>
+        <option value="一般">一般戦</option>
+      </select>
+      <label style="font-size:13px; color:var(--muted)">レース種別:</label>
+      <select id="trend-racetype" style="max-width:140px">
+        <option value="all">すべて</option>
+        <option value="予選">予選</option>
+        <option value="特選">特選/ドリーム</option>
+        <option value="一般">一般</option>
+        <option value="準優勝戦">準優勝戦</option>
+        <option value="優勝戦">優勝戦</option>
+      </select>
+      <label style="font-size:13px; color:var(--muted)">R番号:</label>
+      <select id="trend-raceno" style="max-width:100px">
+        <option value="all">すべて</option>
+        <option value="1">1R</option><option value="2">2R</option><option value="3">3R</option>
+        <option value="4">4R</option><option value="5">5R</option><option value="6">6R</option>
+        <option value="7">7R</option><option value="8">8R</option><option value="9">9R</option>
+        <option value="10">10R</option><option value="11">11R</option><option value="12">12R</option>
+      </select>
+      <span class="note" id="trend-period-info" style="margin:0"></span>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>会場</th><th>R数</th>
+            <th>1着率<br>1号艇</th><th>1着率<br>2号艇</th><th>1着率<br>3号艇</th><th>1着率<br>4号艇</th><th>1着率<br>5号艇</th><th>1着率<br>6号艇</th>
+            <th>万舟率</th><th>平均配当</th>
+          </tr>
+        </thead>
+        <tbody id="venue-trends-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>着順別の艇番出現率（会場フォーカス）</h2>
+    <p class="note" style="margin-bottom:12px">指定会場で、選んだ期間中に各着順にどの艇番が来たかの確率です。スコア予想の補強材料に使えます。</p>
+    <div style="margin-bottom:12px; display:flex; gap:8px; align-items:center; flex-wrap:wrap">
+      <label style="font-size:13px; color:var(--muted)">会場:</label>
+      <select id="finish-rate-venue" style="max-width:180px"></select>
+      <span class="note" id="finish-rate-info" style="margin:0"></span>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>艇番</th>
+            <th>1着率</th>
+            <th>2着率</th>
+            <th>3着率</th>
+            <th>3着内率<br>(複勝相当)</th>
+          </tr>
+        </thead>
+        <tbody id="finish-rate-tbody"></tbody>
+      </table>
+    </div>
+    <div id="finish-rate-summary" style="margin-top:12px"></div>
+  </div>
+
+  <div class="panel">
+    <h2>R番号別の傾向（会場フォーカス）</h2>
+    <p class="note" style="margin-bottom:12px">1R〜12Rそれぞれの1〜3着艇番出現率です。会場ごとのR別の癖を把握できます。期間・グレード・種別フィルタも反映されます。</p>
+    <div style="margin-bottom:12px; display:flex; gap:8px; align-items:center; flex-wrap:wrap">
+      <label style="font-size:13px; color:var(--muted)">会場:</label>
+      <select id="rn-venue" style="max-width:180px"></select>
+      <span class="note" id="rn-info" style="margin:0"></span>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th rowspan="2">R</th>
+            <th rowspan="2">サンプル<br>数</th>
+            <th colspan="6">1着率(%)</th>
+            <th rowspan="2">予測<br>1着</th>
+            <th rowspan="2">予測<br>2着</th>
+            <th rowspan="2">予測<br>3着</th>
+            <th rowspan="2">万舟率</th>
+          </tr>
+          <tr>
+            <th>1号</th><th>2号</th><th>3号</th><th>4号</th><th>5号</th><th>6号</th>
+          </tr>
+        </thead>
+        <tbody id="rn-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>その日のトレンド（指定日の1R〜現在Rの傾向）</h2>
+    <div style="margin-bottom:12px; display:flex; gap:8px; align-items:center; flex-wrap:wrap">
+      <label style="font-size:13px; color:var(--muted)">日付:</label>
+      <input type="date" id="day-trend-date" style="max-width:180px">
+      <label style="font-size:13px; color:var(--muted)">会場:</label>
+      <select id="day-trend-venue" style="max-width:180px"></select>
+    </div>
+    <div id="day-trend-result"></div>
+  </div>
+</section>
+
+<!-- ============ Tab: 会場メモ ============ -->
+<section id="tab-venues" class="tab hide">
+  <div class="panel">
+    <h2>会場メモ・1号艇補正</h2>
+    <p class="note" style="margin-bottom:14px">1号艇1着率は2024年前後の参考値。会場ごとの傾向を覚えていく場所</p>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>会場名</th><th>1コース1着率</th><th>1号艇補正</th><th>特徴メモ</th></tr>
+        </thead>
+        <tbody id="venues-tbody"></tbody>
+      </table>
+    </div>
+    <div style="margin-top:14px;">
+      <button class="btn btn-success" onclick="saveVenues()">会場補正を保存</button>
+    </div>
+  </div>
+</section>
+
+<!-- ============ Tab: 使い方 ============ -->
+<section id="tab-help" class="tab hide">
+  <div class="panel">
+    <h2>使い方ガイド</h2>
+
+    <h3>運用の流れ</h3>
+    <details open>
+      <summary>STEP1: スコア表で1レース分のデータを入力</summary>
+      <p style="margin-top:8px; font-size:13px;">公式サイト(boatrace.jp)の出走表を見ながら、各艇の選手名・級別・勝率・モーター2連率・平均ST・F持ち・チルトを入力。レース情報(風・波・会場)も入力します。自動でスコア・推奨買い目が出ます。</p>
+    </details>
+    <details>
+      <summary>STEP2: 「予想記録に追加」ボタンで記録</summary>
+      <p style="margin-top:8px; font-size:13px;">最初の2週間は「実際に買った点数=0」のまま記録するのが鉄則。買わずに自分のモデル精度を測ります。</p>
+    </details>
+    <details>
+      <summary>STEP3: レース後、結果記録に1着〜3着を入力</summary>
+      <p style="margin-top:8px; font-size:13px;">本命的中の✓と回収額を入れると損益が自動計算。本命とは「スコア1位の艇」のこと。</p>
+    </details>
+    <details>
+      <summary>STEP4: 集計シートで成績確認</summary>
+      <p style="margin-top:8px; font-size:13px;">全体・会場別・スコア帯別・判定別の的中率と損益が見れます。「スコア14以上だと的中率8割」みたいな発見があったら、その帯を狙う運用に切り替え。</p>
+    </details>
+    <details>
+      <summary>STEP5: スコア設定で配点を調整</summary>
+      <p style="margin-top:8px; font-size:13px;">外しているパターンを見て、効いていない項目の配点を下げ、効いている項目を上げます。これがあなた独自のモデル作り。</p>
+    </details>
+
+    <h3 style="margin-top:20px;">データの保存</h3>
+    <p style="font-size:13px;">画面上部の「💾 JSONで保存」でデータをJSONファイルにダウンロード。「📂 JSON読み込み」で復元できます。ブラウザ内にも自動保存されてますが、PCが変わったりキャッシュクリアで消えるので、定期的にJSON保存しましょう。「📊 Excelエクスポート」で.xlsx形式の閲覧用ファイルも作れます。</p>
+
+    <h3 style="margin-top:20px;">スマホでも見たい時(GitHub Pages運用)</h3>
+    <details>
+      <summary>STEP1: GitHubアカウント作成 → リポジトリ作成</summary>
+      <div style="margin-top:8px; font-size:13px;">
+        <ol style="padding-left:20px; line-height:1.8">
+          <li>github.com にアクセスして無料アカウント作成</li>
+          <li>右上の「+」→「New repository」</li>
+          <li>名前は <code>boatrace-tool</code> など(英数字)</li>
+          <li><b>Public</b>を選択(GitHub Pages無料利用に必要)</li>
+          <li>「Add a README file」にチェック → Create</li>
+        </ol>
+      </div>
+    </details>
+    <details>
+      <summary>STEP2: HTMLファイルをアップロード</summary>
+      <div style="margin-top:8px; font-size:13px;">
+        <ol style="padding-left:20px; line-height:1.8">
+          <li>このHTMLファイル名を <code>index.html</code> に変更</li>
+          <li>リポジトリ画面で「Add file」→「Upload files」</li>
+          <li>index.html をドラッグ&ドロップ → Commit changes</li>
+        </ol>
+      </div>
+    </details>
+    <details>
+      <summary>STEP3: GitHub Pagesを有効化</summary>
+      <div style="margin-top:8px; font-size:13px;">
+        <ol style="padding-left:20px; line-height:1.8">
+          <li>リポジトリの「Settings」→「Pages」</li>
+          <li>「Source」で <b>main</b> ブランチを選択 → Save</li>
+          <li>数分後、URLが表示される: <code>https://(ユーザー名).github.io/boatrace-tool/</code></li>
+          <li>このURLをPC・スマホ両方からアクセス可能</li>
+        </ol>
+      </div>
+    </details>
+    <details>
+      <summary>STEP4: データ同期(PC → GitHub → スマホ)</summary>
+      <div style="margin-top:8px; font-size:13px;">
+        <ol style="padding-left:20px; line-height:1.8">
+          <li>PCで「💾 JSONで保存」→ ファイル名を <code>data.json</code> に変更</li>
+          <li>GitHubリポジトリで data.json をアップロード(同じ場所に上書き)</li>
+          <li>スマホでツールを開き、「📡 URL読み込み」をクリック</li>
+          <li>URL欄に <code>https://(ユーザー名).github.io/boatrace-tool/data.json</code> を入力</li>
+          <li>「起動時に自動で読み込む」をONにすれば、次回以降は自動同期</li>
+        </ol>
+        <p class="note" style="margin-top:8px">※スマホでは「見る」専用。データ更新はPCで行う運用が想定。</p>
+      </div>
+    </details>
+    <details>
+      <summary>STEP5: スマホのホーム画面に追加(アプリ化)</summary>
+      <div style="margin-top:8px; font-size:13px;">
+        <ul style="padding-left:20px; line-height:1.8">
+          <li><b>iPhone</b>: Safariで開く → 共有ボタン → ホーム画面に追加</li>
+          <li><b>Android</b>: Chromeで開く → メニュー → ホーム画面に追加</li>
+        </ul>
+        <p style="margin-top:8px">これでアプリのようにワンタップで起動できます。</p>
+      </div>
+    </details>
+
+    <h3 style="margin-top:20px;">基礎知識のおさらい</h3>
+    <details>
+      <summary>競艇のコース取り基礎</summary>
+      <p style="margin-top:8px; font-size:13px;">1号艇が最も有利(全国平均1着率約55%)。追い風はまくり有利=1号艇不利、向かい風は1号艇有利。会場ごとに1コース1着率が違うので、会場メモを参考に。</p>
+    </details>
+    <details>
+      <summary>決まり手の種類</summary>
+      <p style="margin-top:8px; font-size:13px;">逃げ(1号艇1着)・差し・まくり・まくり差し・抜き・恵まれ。1号艇が弱そうなら次にどの決まり手が出るかを想像する。</p>
+    </details>
+    <details>
+      <summary>チルトとは？</summary>
+      <p style="margin-top:8px; font-size:13px;">ボートのモーター取り付け角度。プラス角度(0.5〜3度)=直線重視(まくり狙い)、マイナス=旋回重視。2号艇以下でチルトが高い選手がいると、1号艇がまくられる可能性が上がる。</p>
+    </details>
+    <details>
+      <summary>避けたほうがいいレース</summary>
+      <p style="margin-top:8px; font-size:13px;">雨や濃霧の日、B級ばかりの予選レース、前づけが激しいレース、ドリーム戦・優勝戦(実力拮抗で荒れやすい)。逆に企画レース(1〜2R)は固めで初心者向き。</p>
+    </details>
+  </div>
+</section>
+
+<div class="toast" id="toast"></div>
+
+<!-- URL Load Modal -->
+<div class="modal-bg hide" id="url-load-modal">
+  <div class="modal">
+    <h3>📡 URLからJSONデータを読み込む</h3>
+    <p class="note" style="margin-bottom:12px">GitHub Pagesやクラウドストレージに置いたJSONファイルのURLを指定して読み込みます。</p>
+
+    <div class="field">
+      <label>JSONのURL</label>
+      <input type="text" id="url-load-input" placeholder="https://(ユーザー名).github.io/boatrace-tool/data.json">
+    </div>
+
+    <div class="field">
+      <label>
+        <input type="checkbox" id="url-load-autoload"> 起動時に自動で読み込む
+      </label>
+    </div>
+
+    <p class="note">※GitHub Pagesの場合、リポジトリ直下に data.json を置いて、上記URLでアクセスできるようにしてください。CORS設定不要(同一ドメイン or GitHub Pagesは公開なので可)。</p>
+
+    <div class="modal-actions">
+      <button class="btn" onclick="closeUrlLoadModal()">キャンセル</button>
+      <button class="btn btn-primary" onclick="loadJsonFromUrl()">読み込む</button>
+    </div>
+  </div>
+</div>
+
+<!-- Tag Editor Modal -->
+<div class="modal-bg hide" id="tag-modal">
+  <div class="modal">
+    <h3 id="tag-modal-title">タグを追加</h3>
+
+    <div class="field">
+      <label>よく使うタグから選ぶ</label>
+      <div class="suggest-grid" id="tag-suggestions"></div>
+    </div>
+
+    <div class="field">
+      <label>タグ名</label>
+      <input type="text" id="tag-name-input" placeholder="例: 風に強い、差し屋、調子悪い…">
+    </div>
+
+    <div class="grid grid-3">
+      <div class="field">
+        <label>点数 (-5〜+5)</label>
+        <input type="number" id="tag-points-input" step="0.5" value="1" min="-5" max="5">
+      </div>
+      <div class="field" style="grid-column: span 2;">
+        <label>初期状態</label>
+        <select id="tag-active-input">
+          <option value="true">ON（スコアに反映）</option>
+          <option value="false">OFF（メモのみ）</option>
+        </select>
+      </div>
+    </div>
+
+    <p class="note" style="margin-top:10px;">プラス点数は緑、マイナス点数は赤で表示されます。</p>
+
+    <div class="modal-actions">
+      <button class="btn" onclick="closeTagModal()">キャンセル</button>
+      <button class="btn btn-primary" id="tag-modal-save" onclick="saveTagFromModal()">追加</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ============== Default Data ==============
+const VENUES = [
+  {name:'桐生', rate:'48%前後', adj:-1, memo:'標高高く荒れやすい'},
+  {name:'戸田', rate:'45%前後', adj:-2, memo:'日本一インが弱い。波乱狙い向き'},
+  {name:'江戸川', rate:'52%前後', adj:-1, memo:'波と風で荒れやすい'},
+  {name:'平和島', rate:'50%前後', adj:-1, memo:'風の影響大、荒れやすい'},
+  {name:'多摩川', rate:'55%前後', adj:0, memo:'平均的'},
+  {name:'浜名湖', rate:'53%前後', adj:0, memo:'広い水面'},
+  {name:'蒲郡', rate:'53%前後', adj:0, memo:'標準'},
+  {name:'常滑', rate:'53%前後', adj:0, memo:'標準'},
+  {name:'津', rate:'57%前後', adj:1, memo:'比較的固い'},
+  {name:'三国', rate:'52%前後', adj:0, memo:'風の影響大'},
+  {name:'琵琶湖', rate:'50%前後', adj:-1, memo:'風の影響大、荒れやすい'},
+  {name:'住之江', rate:'54%前後', adj:0, memo:'標準'},
+  {name:'尼崎', rate:'53%前後', adj:0, memo:'標準'},
+  {name:'鳴門', rate:'56%前後', adj:1, memo:'やや固め'},
+  {name:'丸亀', rate:'55%前後', adj:1, memo:'平均的'},
+  {name:'児島', rate:'54%前後', adj:0, memo:'標準'},
+  {name:'宮島', rate:'50%前後', adj:-1, memo:'潮の影響大'},
+  {name:'徳山', rate:'60%前後', adj:2, memo:'インが非常に強い'},
+  {name:'下関', rate:'57%前後', adj:1, memo:'インやや有利'},
+  {name:'若松', rate:'50%前後', adj:-1, memo:'夜の風で荒れやすい'},
+  {name:'芦屋', rate:'58%前後', adj:1, memo:'インやや有利'},
+  {name:'福岡', rate:'54%前後', adj:0, memo:'潮の影響あり'},
+  {name:'唐津', rate:'54%前後', adj:0, memo:'標準'},
+  {name:'大村', rate:'60%超', adj:2, memo:'日本一インが強い。本命狙いに最適'},
+];
+
+const DEFAULT_SETTINGS = {
+  classA1: 3, classA2: 2, classB1: 1, classB2: 0,
+  win7: 3, win6: 2, win5: 1, win0: 0,
+  localBonus: 1,
+  motor45: 2, motor40: 1, motor35: 0, motor0: -1,
+  st14: 2, st16: 1, st18: 0, st99: -1,
+  fPenalty: -2, tiltBonus: 1,
+  envHead: 1, envTail: -1, envTailStrong: -2, envWave: -1,
+};
+
+// ============== State ==============
+let state = {
+  settings: {...DEFAULT_SETTINGS},
+  venues: JSON.parse(JSON.stringify(VENUES)),
+  predictions: [],
+  results: {},  // keyed by prediction id
+  playerTags: {},  // {playerName: [{name, points, active}, ...]}
+  players: {},  // {playerName: {regno, records:{periodKey:data}, manual:{}, ...}}
+  playersUpdated: null,
+  importHistory: [],
+  raceResults: [],  // [{date:'2024-01-01', venue:'大村', venueCode:'24', raceNo:1, first:1, second:3, third:6, trifectaPayout:1830, ...}]
+  autoTagRules: {
+    nigeTh: 70, nigePt: 2,
+    c2Th: 50, c2Pt: 1,
+    c3Th: 50, c3Pt: 1,
+    outTh: 25, outPt: 1.5,
+    stTh: 0.14, stPt: 1,
+    fTh: 3, fPt: -1,
+    localPt: 1,
+  },
+};
+
+// Suggested tags for quick add
+const SUGGESTED_TAGS = [
+  {name: '風に強い', points: 1},
+  {name: '風に弱い', points: -1},
+  {name: 'まくり屋', points: 1},
+  {name: '差し屋', points: 1},
+  {name: '逃げ巧者', points: 2},
+  {name: 'スタート巧者', points: 1},
+  {name: 'スタート遅め', points: -1},
+  {name: '当地巧者', points: 1},
+  {name: '当地苦手', points: -1},
+  {name: '調子良い', points: 1.5},
+  {name: '調子悪い', points: -1.5},
+  {name: 'ターン上手い', points: 1},
+  {name: '展示好調', points: 1},
+  {name: '展示不調', points: -1},
+  {name: 'F明け慎重', points: -1},
+  {name: '荒水面得意', points: 1},
+  {name: '若手伸び盛り', points: 0.5},
+  {name: 'ベテラン安定', points: 0.5},
+];
+
+const STORAGE_KEY = 'boatrace_app_v1';
+
+function loadFromStorage() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) {
+      const data = JSON.parse(raw);
+      state = {
+        settings: {...DEFAULT_SETTINGS, ...(data.settings || {})},
+        venues: data.venues || JSON.parse(JSON.stringify(VENUES)),
+        predictions: data.predictions || [],
+        results: data.results || {},
+        playerTags: data.playerTags || {},
+        players: data.players || {},
+        playersUpdated: data.playersUpdated || null,
+        importHistory: data.importHistory || [],
+        raceResults: data.raceResults || [],
+        autoTagRules: {
+          nigeTh: 70, nigePt: 2, c2Th: 50, c2Pt: 1, c3Th: 50, c3Pt: 1,
+          outTh: 25, outPt: 1.5, stTh: 0.14, stPt: 1, fTh: 3, fPt: -1, localPt: 1,
+          ...(data.autoTagRules || {})
+        },
+      };
+      // 既存データに raceHistory が無ければ構築
+      const needsBuild = Object.values(state.players).some(p => !p.raceHistory);
+      if (needsBuild && state.raceResults.length > 0) {
+        rebuildPlayerRaceHistory();
+      }
+    }
+  } catch(e) { console.error(e); }
+}
+
+function saveToStorage() {
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
+  catch(e) { console.error(e); }
+}
+
+// ============== Boats Table ==============
+const SAMPLE_BOATS = [
+  {no:1, name:'', cls:'A1', win:6.50, local:6.50, motor:40, st:0.15, f:false, tilt:0.5, tags:[]},
+  {no:2, name:'', cls:'A1', win:6.20, local:6.20, motor:38, st:0.16, f:false, tilt:0.5, tags:[]},
+  {no:3, name:'', cls:'A2', win:5.80, local:5.80, motor:35, st:0.17, f:false, tilt:0.0, tags:[]},
+  {no:4, name:'', cls:'B1', win:5.20, local:5.20, motor:33, st:0.18, f:false, tilt:0.0, tags:[]},
+  {no:5, name:'', cls:'B1', win:4.80, local:4.80, motor:32, st:0.18, f:false, tilt:0.0, tags:[]},
+  {no:6, name:'', cls:'B2', win:4.50, local:4.50, motor:30, st:0.19, f:false, tilt:0.0, tags:[]},
+];
+
+let boats = JSON.parse(JSON.stringify(SAMPLE_BOATS));
+
+function renderBoatsTable() {
+  const tbody = document.getElementById('boats-tbody');
+  tbody.innerHTML = '';
+  boats.forEach((b, i) => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td style="font-weight:700;color:var(--accent)">${b.no}</td>
+      <td><input type="text" value="${b.name}" data-idx="${i}" data-field="name"></td>
+      <td>
+        <select data-idx="${i}" data-field="cls">
+          <option ${b.cls==='A1'?'selected':''}>A1</option>
+          <option ${b.cls==='A2'?'selected':''}>A2</option>
+          <option ${b.cls==='B1'?'selected':''}>B1</option>
+          <option ${b.cls==='B2'?'selected':''}>B2</option>
+        </select>
+      </td>
+      <td><input type="number" value="${b.win}" step="0.01" data-idx="${i}" data-field="win"></td>
+      <td><input type="number" value="${b.local}" step="0.01" data-idx="${i}" data-field="local"></td>
+      <td><input type="number" value="${b.motor}" step="1" data-idx="${i}" data-field="motor"></td>
+      <td><input type="number" value="${b.st}" step="0.01" data-idx="${i}" data-field="st"></td>
+      <td><input type="checkbox" ${b.f?'checked':''} data-idx="${i}" data-field="f"></td>
+      <td><input type="number" value="${b.tilt}" step="0.5" data-idx="${i}" data-field="tilt"></td>
+    `;
+    tbody.appendChild(tr);
+  });
+
+  tbody.querySelectorAll('input, select').forEach(el => {
+    el.addEventListener('input', e => {
+      const idx = +e.target.dataset.idx;
+      const field = e.target.dataset.field;
+      if (field === 'f') boats[idx][field] = e.target.checked;
+      else if (['win','local','motor','st','tilt'].includes(field)) boats[idx][field] = +e.target.value || 0;
+      else boats[idx][field] = e.target.value;
+
+      // 選手名変更時はDBから自動補完を試みる
+      if (field === 'name') {
+        const playerName = e.target.value.trim();
+        if (playerName) {
+          const filled = autoFillFromPlayerDB(idx, playerName);
+          if (filled) {
+            // 入力欄を更新
+            renderBoatsTable();
+            renderBoatTags();
+            computeScores();
+            return;
+          }
+          // DBになければplayerTagsから復元
+          if (state.playerTags[playerName]) {
+            boats[idx].tags = JSON.parse(JSON.stringify(state.playerTags[playerName]));
+          }
+        } else {
+          boats[idx].tags = [];
+        }
+        renderBoatTags();
+      }
+      computeScores();
+    });
+  });
+}
+
+// ============== Score Calculation ==============
+function calcBoatScore(b) {
+  const s = state.settings;
+  const classPt = {A1: s.classA1, A2: s.classA2, B1: s.classB1, B2: s.classB2}[b.cls] || 0;
+  let winPt;
+  if (b.win >= 7.0) winPt = s.win7;
+  else if (b.win >= 6.0) winPt = s.win6;
+  else if (b.win >= 5.0) winPt = s.win5;
+  else winPt = s.win0;
+  const localPt = b.local > b.win ? s.localBonus : 0;
+  let motorPt;
+  if (b.motor >= 45) motorPt = s.motor45;
+  else if (b.motor >= 40) motorPt = s.motor40;
+  else if (b.motor >= 35) motorPt = s.motor35;
+  else motorPt = s.motor0;
+  let stPt;
+  if (b.st <= 0.14) stPt = s.st14;
+  else if (b.st <= 0.16) stPt = s.st16;
+  else if (b.st <= 0.18) stPt = s.st18;
+  else stPt = s.st99;
+  const fPt = b.f ? s.fPenalty : 0;
+  const tiltPt = (b.no !== 1 && b.tilt >= 0.5) ? s.tiltBonus : 0;
+  // タグの点数(アクティブなものだけ加算)
+  const tags = b.tags || [];
+  const tagPt = tags.filter(t => t.active).reduce((sum, t) => sum + (+t.points || 0), 0);
+  const total = classPt + winPt + localPt + motorPt + stPt + fPt + tiltPt + tagPt;
+  return {classPt, winPt, localPt, motorPt, stPt, fPt, tiltPt, tagPt, total};
+}
+
+function calcEnvAdjustment() {
+  const s = state.settings;
+  const dir = document.getElementById('race-windDir').value;
+  const speed = +document.getElementById('race-windSpeed').value || 0;
+  const wave = +document.getElementById('race-wave').value || 0;
+  const venue = document.getElementById('race-venue').value;
+  let adj = 0;
+  if (dir === '向かい風') adj += s.envHead;
+  else if (dir === '追い風') adj += s.envTail;
+  if (dir === '追い風' && speed >= 4) adj += s.envTailStrong;
+  if (wave >= 10) adj += s.envWave;
+  const venueInfo = state.venues.find(v => v.name === venue);
+  if (venueInfo) adj += venueInfo.adj;
+  return adj;
+}
+
+function computeScores() {
+  const scoresInfo = boats.map(b => ({boat: b, ...calcBoatScore(b)}));
+  const envAdj = calcEnvAdjustment();
+  scoresInfo.forEach(s => {
+    s.envAdj = s.boat.no === 1 ? envAdj : 0;
+    s.finalScore = s.total + s.envAdj;
+  });
+  // Ranking
+  const sorted = [...scoresInfo].sort((a,b) => b.finalScore - a.finalScore);
+  sorted.forEach((s, i) => s.rank = i + 1);
+
+  renderScoresTable(scoresInfo);
+  renderVerdict(scoresInfo, sorted);
+  renderScorePastReference(sorted);
+  return {scoresInfo, sorted};
+}
+
+function renderScoresTable(scoresInfo) {
+  const tbody = document.getElementById('scores-tbody');
+  tbody.innerHTML = '';
+  scoresInfo.forEach(s => {
+    const tr = document.createElement('tr');
+    if (s.rank === 1) tr.classList.add('rank-1');
+    else if (s.rank === 2) tr.classList.add('rank-2');
+    else if (s.rank === 3) tr.classList.add('rank-3');
+    const scoreClass = s.finalScore >= 10 ? 'score-high' : s.finalScore >= 5 ? 'score-mid' : 'score-low';
+    tr.innerHTML = `
+      <td style="font-weight:700;color:var(--accent)">${s.boat.no}</td>
+      <td>${s.classPt}</td>
+      <td>${s.winPt}</td>
+      <td>${s.localPt}</td>
+      <td>${s.motorPt}</td>
+      <td>${s.stPt}</td>
+      <td>${s.fPt}</td>
+      <td>${s.tiltPt}</td>
+      <td style="color:${s.tagPt>0?'var(--success)':s.tagPt<0?'var(--danger)':'var(--muted)'}">${s.tagPt}</td>
+      <td>${s.total}</td>
+      <td>${s.envAdj}</td>
+      <td class="score-cell ${scoreClass}">${s.finalScore}</td>
+      <td style="font-weight:700">${s.rank}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+function renderVerdict(scoresInfo, sorted) {
+  const top = sorted[0];
+  const second = sorted[1];
+  const verdictEl = document.getElementById('verdict');
+  let verdictText, verdictClass;
+  if (top.boat.no === 1 && (top.finalScore - second.finalScore) >= 3) {
+    verdictText = '🎯 本命濃厚（1号艇優勢）';
+    verdictClass = 'verdict-honmei';
+  } else if (top.boat.no === 1) {
+    verdictText = '⚠️ 本命やや有利';
+    verdictClass = 'verdict-yuri';
+  } else {
+    verdictText = '🌊 波乱注意（1号艇苦戦）';
+    verdictClass = 'verdict-haran';
+  }
+  verdictEl.textContent = verdictText;
+  verdictEl.className = `verdict ${verdictClass}`;
+
+  // Recommend boats
+  const recEl = document.getElementById('recommend');
+  recEl.innerHTML = '';
+  const roles = ['本命', '対抗', '3番手', '4番手'];
+  roles.forEach((role, i) => {
+    const boat = sorted[i];
+    const card = document.createElement('div');
+    card.className = 'rec-card';
+    card.innerHTML = `
+      <div class="role">${role}</div>
+      <div class="boat-num">${boat.boat.no}</div>
+      <div class="boat-name">${boat.boat.name || '―'}</div>
+    `;
+    recEl.appendChild(card);
+  });
+
+  // Formation
+  const top1 = sorted[0].boat.no;
+  const top2 = sorted[1].boat.no;
+  const top3 = sorted[2].boat.no;
+  const top4 = sorted[3].boat.no;
+  document.getElementById('formation-pattern').textContent =
+    `${top1} - ${top2},${top3} - ${top2},${top3},${top4}`;
+}
+
+// ============== Tag System ==============
+function renderBoatTags() {
+  const container = document.getElementById('boat-tags-container');
+  container.innerHTML = '';
+  boats.forEach((b, idx) => {
+    const row = document.createElement('div');
+    row.className = 'boat-tags-row';
+    const tagsHtml = (b.tags || []).map((t, ti) => {
+      const polarity = t.points > 0 ? 'positive' : t.points < 0 ? 'negative' : '';
+      const activeClass = t.active ? 'active' : '';
+      const sign = t.points > 0 ? '+' : '';
+      return `
+        <span class="tag ${polarity} ${activeClass}">
+          <span class="tag-toggle" onclick="toggleTag(${idx},${ti})">
+            ${t.name}<span class="tag-points">(${sign}${t.points})</span>
+          </span>
+          <button class="tag-edit-btn" onclick="openTagModal(${idx},${ti})" title="編集">✎</button>
+          <button class="tag-remove-btn" onclick="removeTag(${idx},${ti})" title="削除">×</button>
+        </span>
+      `;
+    }).join('');
+    row.innerHTML = `
+      <div class="boat-tags-label">
+        ${b.no}号艇
+        <span class="player-name">${b.name || '選手未入力'}</span>
+      </div>
+      <div class="tags-container">
+        ${tagsHtml}
+        <button class="tag-add-btn" onclick="openTagModal(${idx},null)">＋ タグ追加</button>
+      </div>
+    `;
+    container.appendChild(row);
+  });
+}
+
+let currentTagEdit = {boatIdx: null, tagIdx: null};
+
+function openTagModal(boatIdx, tagIdx) {
+  currentTagEdit = {boatIdx, tagIdx};
+  const modal = document.getElementById('tag-modal');
+  const title = document.getElementById('tag-modal-title');
+  const saveBtn = document.getElementById('tag-modal-save');
+  const nameInput = document.getElementById('tag-name-input');
+  const pointsInput = document.getElementById('tag-points-input');
+  const activeInput = document.getElementById('tag-active-input');
+
+  if (tagIdx === null) {
+    // Add mode
+    title.textContent = `${boats[boatIdx].no}号艇にタグを追加`;
+    saveBtn.textContent = '追加';
+    nameInput.value = '';
+    pointsInput.value = 1;
+    activeInput.value = 'true';
+  } else {
+    // Edit mode
+    const tag = boats[boatIdx].tags[tagIdx];
+    title.textContent = 'タグを編集';
+    saveBtn.textContent = '保存';
+    nameInput.value = tag.name;
+    pointsInput.value = tag.points;
+    activeInput.value = tag.active ? 'true' : 'false';
+  }
+
+  // Suggestions
+  const suggGrid = document.getElementById('tag-suggestions');
+  suggGrid.innerHTML = '';
+  SUGGESTED_TAGS.forEach(s => {
+    const btn = document.createElement('button');
+    const sign = s.points > 0 ? '+' : '';
+    btn.textContent = `${s.name} (${sign}${s.points})`;
+    btn.onclick = () => {
+      nameInput.value = s.name;
+      pointsInput.value = s.points;
+    };
+    suggGrid.appendChild(btn);
+  });
+
+  modal.classList.remove('hide');
+  nameInput.focus();
+}
+
+function closeTagModal() {
+  document.getElementById('tag-modal').classList.add('hide');
+  currentTagEdit = {boatIdx: null, tagIdx: null};
+}
+
+function saveTagFromModal() {
+  const name = document.getElementById('tag-name-input').value.trim();
+  const points = +document.getElementById('tag-points-input').value || 0;
+  const active = document.getElementById('tag-active-input').value === 'true';
+  if (!name) { showToast('タグ名を入力してください', true); return; }
+
+  const {boatIdx, tagIdx} = currentTagEdit;
+  if (!boats[boatIdx].tags) boats[boatIdx].tags = [];
+
+  if (tagIdx === null) {
+    boats[boatIdx].tags.push({name, points, active});
+  } else {
+    boats[boatIdx].tags[tagIdx] = {name, points, active};
+  }
+  savePlayerTags(boatIdx);
+  closeTagModal();
+  renderBoatTags();
+  computeScores();
+}
+
+function toggleTag(boatIdx, tagIdx) {
+  boats[boatIdx].tags[tagIdx].active = !boats[boatIdx].tags[tagIdx].active;
+  savePlayerTags(boatIdx);
+  renderBoatTags();
+  computeScores();
+}
+
+function removeTag(boatIdx, tagIdx) {
+  if (!confirm('このタグを削除しますか？')) return;
+  boats[boatIdx].tags.splice(tagIdx, 1);
+  savePlayerTags(boatIdx);
+  renderBoatTags();
+  computeScores();
+}
+
+function savePlayerTags(boatIdx) {
+  const playerName = (boats[boatIdx].name || '').trim();
+  if (playerName) {
+    state.playerTags[playerName] = JSON.parse(JSON.stringify(boats[boatIdx].tags));
+  }
+  saveToStorage();
+}
+
+
+function savePrediction() {
+  const {sorted} = computeScores();
+  const top1Score = sorted.find(s => s.boat.no === 1).finalScore;
+  const verdictEl = document.getElementById('verdict');
+  const verdict = verdictEl.textContent.replace(/^[🎯⚠️🌊]\s*/, '').split('（')[0];
+
+  const pred = {
+    id: Date.now() + '_' + Math.random().toString(36).slice(2, 8),
+    date: document.getElementById('race-date').value || new Date().toISOString().slice(0,10),
+    venue: document.getElementById('race-venue').value,
+    raceNo: document.getElementById('race-no').value,
+    top1Score,
+    verdict,
+    honmei: sorted[0].boat.no,
+    taikou: sorted[1].boat.no,
+    third: sorted[2].boat.no,
+    fourth: sorted[3].boat.no,
+    formation: `${sorted[0].boat.no}-${sorted[1].boat.no},${sorted[2].boat.no}-${sorted[1].boat.no},${sorted[2].boat.no},${sorted[3].boat.no}`,
+    points: +document.getElementById('rec-points').value || 0,
+    bet: +document.getElementById('rec-bet').value || 0,
+    memo: document.getElementById('rec-memo').value || '',
+    boats: JSON.parse(JSON.stringify(boats)),  // tagsも含まれる
+    race: {
+      date: document.getElementById('race-date').value,
+      venue: document.getElementById('race-venue').value,
+      raceNo: document.getElementById('race-no').value,
+      weather: document.getElementById('race-weather').value,
+      windDir: document.getElementById('race-windDir').value,
+      windSpeed: +document.getElementById('race-windSpeed').value || 0,
+      wave: +document.getElementById('race-wave').value || 0,
+    }
+  };
+  state.predictions.unshift(pred);
+  saveToStorage();
+  renderPredictions();
+  renderResults();
+  showToast('予想を記録しました');
+}
+
+function renderPredictions() {
+  const tbody = document.getElementById('predictions-tbody');
+  document.getElementById('pred-count').textContent = state.predictions.length;
+  tbody.innerHTML = '';
+  state.predictions.forEach(p => {
+    const tr = document.createElement('tr');
+    const totalInvest = p.points * p.bet;
+    tr.innerHTML = `
+      <td>${p.date}</td>
+      <td>${p.venue}</td>
+      <td>${p.raceNo}</td>
+      <td style="font-weight:700">${p.top1Score}</td>
+      <td>${p.verdict}</td>
+      <td>${p.honmei}</td>
+      <td>${p.taikou}</td>
+      <td>${p.third}</td>
+      <td>${p.fourth}</td>
+      <td style="font-family:monospace;font-size:11px">${p.formation}</td>
+      <td>${p.points}</td>
+      <td>¥${totalInvest.toLocaleString()}</td>
+      <td style="font-size:11px;color:var(--muted)">${p.memo}</td>
+      <td><button class="btn btn-danger" style="padding:4px 8px;font-size:11px" onclick="deletePrediction('${p.id}')">削除</button></td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+function deletePrediction(id) {
+  if (!confirm('この予想を削除しますか？')) return;
+  state.predictions = state.predictions.filter(p => p.id !== id);
+  delete state.results[id];
+  saveToStorage();
+  renderPredictions();
+  renderResults();
+  renderSummary();
+}
+
+// ============== Results ==============
+function renderResults() {
+  const tbody = document.getElementById('results-tbody');
+  tbody.innerHTML = '';
+  state.predictions.forEach(p => {
+    const r = state.results[p.id] || {};
+    const invest = p.points * p.bet;
+    const isHit = r.hit ? 1 : 0;
+    const recover = r.recover != null ? r.recover : (r.hit && r.payout ? r.payout : 0);
+    const profit = recover - invest;
+    const profitColor = profit > 0 ? 'var(--success)' : profit < 0 ? 'var(--danger)' : 'var(--muted)';
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${p.date}</td>
+      <td>${p.venue}</td>
+      <td>${p.raceNo}</td>
+      <td>${p.honmei}</td>
+      <td><input type="number" min="1" max="6" value="${r.first ?? ''}" data-pid="${p.id}" data-field="first" style="width:50px"></td>
+      <td><input type="number" min="1" max="6" value="${r.second ?? ''}" data-pid="${p.id}" data-field="second" style="width:50px"></td>
+      <td><input type="number" min="1" max="6" value="${r.third ?? ''}" data-pid="${p.id}" data-field="third" style="width:50px"></td>
+      <td><input type="number" value="${r.payout ?? ''}" data-pid="${p.id}" data-field="payout" style="width:80px"></td>
+      <td><input type="checkbox" ${r.hit?'checked':''} data-pid="${p.id}" data-field="hit"></td>
+      <td>¥${invest.toLocaleString()}</td>
+      <td><input type="number" value="${recover}" data-pid="${p.id}" data-field="recover" style="width:80px"></td>
+      <td style="font-weight:700;color:${profitColor}">¥${profit.toLocaleString()}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+
+  tbody.querySelectorAll('input').forEach(el => {
+    el.addEventListener('input', e => {
+      const pid = e.target.dataset.pid;
+      const field = e.target.dataset.field;
+      if (!state.results[pid]) state.results[pid] = {};
+      if (field === 'hit') state.results[pid][field] = e.target.checked;
+      else state.results[pid][field] = e.target.value === '' ? null : +e.target.value;
+      saveToStorage();
+      // Update profit cell without re-rendering everything
+      const tr = e.target.closest('tr');
+      const r = state.results[pid];
+      const p = state.predictions.find(p => p.id === pid);
+      const invest = p.points * p.bet;
+      const recover = r.recover != null ? r.recover : (r.hit && r.payout ? r.payout : 0);
+      const profit = recover - invest;
+      const profitColor = profit > 0 ? 'var(--success)' : profit < 0 ? 'var(--danger)' : 'var(--muted)';
+      tr.cells[11].textContent = `¥${profit.toLocaleString()}`;
+      tr.cells[11].style.color = profitColor;
+    });
+  });
+}
+
+// ============== Summary ==============
+function renderSummary() {
+  // Overall
+  let totalRaces = state.predictions.length;
+  let totalHits = 0, totalInvest = 0, totalRecover = 0;
+  state.predictions.forEach(p => {
+    const r = state.results[p.id] || {};
+    const invest = p.points * p.bet;
+    const recover = r.recover != null ? r.recover : (r.hit && r.payout ? r.payout : 0);
+    if (r.hit) totalHits++;
+    totalInvest += invest;
+    totalRecover += recover;
+  });
+  const hitRate = totalRaces > 0 ? (totalHits / totalRaces * 100) : 0;
+  const profit = totalRecover - totalInvest;
+  const recovery = totalInvest > 0 ? (totalRecover / totalInvest * 100) : 0;
+
+  const overall = document.getElementById('overall-stats');
+  overall.innerHTML = `
+    <div class="stat-card"><div class="label">総レース数</div><div class="value">${totalRaces}</div></div>
+    <div class="stat-card"><div class="label">本命的中数</div><div class="value">${totalHits}</div></div>
+    <div class="stat-card"><div class="label">本命的中率</div><div class="value">${hitRate.toFixed(1)}%</div></div>
+    <div class="stat-card"><div class="label">総投資額</div><div class="value">¥${totalInvest.toLocaleString()}</div></div>
+    <div class="stat-card"><div class="label">総回収額</div><div class="value">¥${totalRecover.toLocaleString()}</div></div>
+    <div class="stat-card"><div class="label">損益</div><div class="value ${profit>0?'pos':profit<0?'neg':''}">¥${profit.toLocaleString()}</div></div>
+    <div class="stat-card"><div class="label">回収率</div><div class="value ${recovery>=100?'pos':recovery<80?'neg':''}">${recovery.toFixed(1)}%</div></div>
+  `;
+
+  // By venue
+  const byVenue = {};
+  state.predictions.forEach(p => {
+    if (!byVenue[p.venue]) byVenue[p.venue] = {races:0, hits:0, profit:0};
+    const r = state.results[p.id] || {};
+    const invest = p.points * p.bet;
+    const recover = r.recover != null ? r.recover : (r.hit && r.payout ? r.payout : 0);
+    byVenue[p.venue].races++;
+    if (r.hit) byVenue[p.venue].hits++;
+    byVenue[p.venue].profit += (recover - invest);
+  });
+  const venueTbody = document.getElementById('venue-stats');
+  venueTbody.innerHTML = '';
+  Object.entries(byVenue).sort((a,b) => b[1].races - a[1].races).forEach(([v, d]) => {
+    const rate = d.races > 0 ? (d.hits/d.races*100).toFixed(1) : '0.0';
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${v}</td><td>${d.races}</td><td>${d.hits}</td><td>${rate}%</td>
+      <td style="color:${d.profit>0?'var(--success)':d.profit<0?'var(--danger)':'var(--muted)'}">¥${d.profit.toLocaleString()}</td>
+    `;
+    venueTbody.appendChild(tr);
+  });
+  if (Object.keys(byVenue).length === 0) {
+    venueTbody.innerHTML = '<tr><td colspan="5" style="color:var(--muted)">データがありません</td></tr>';
+  }
+
+  // By score band
+  const bands = [
+    {label:'5未満（波乱）', lo:-Infinity, hi:5},
+    {label:'5〜7（やや弱）', lo:5, hi:8},
+    {label:'8〜10（中程度）', lo:8, hi:11},
+    {label:'11〜13（強い）', lo:11, hi:14},
+    {label:'14以上（本命濃厚）', lo:14, hi:Infinity},
+  ];
+  const bandTbody = document.getElementById('band-stats');
+  bandTbody.innerHTML = '';
+  bands.forEach(b => {
+    let races=0, hits=0, profit=0;
+    state.predictions.forEach(p => {
+      if (p.top1Score >= b.lo && p.top1Score < b.hi) {
+        races++;
+        const r = state.results[p.id] || {};
+        const invest = p.points * p.bet;
+        const recover = r.recover != null ? r.recover : (r.hit && r.payout ? r.payout : 0);
+        if (r.hit) hits++;
+        profit += (recover - invest);
+      }
+    });
+    const rate = races > 0 ? (hits/races*100).toFixed(1) : '0.0';
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${b.label}</td><td>${races}</td><td>${hits}</td><td>${rate}%</td>
+      <td style="color:${profit>0?'var(--success)':profit<0?'var(--danger)':'var(--muted)'}">¥${profit.toLocaleString()}</td>
+    `;
+    bandTbody.appendChild(tr);
+  });
+
+  // By verdict
+  const byVerdict = {};
+  state.predictions.forEach(p => {
+    if (!byVerdict[p.verdict]) byVerdict[p.verdict] = {races:0, hits:0, profit:0};
+    const r = state.results[p.id] || {};
+    const invest = p.points * p.bet;
+    const recover = r.recover != null ? r.recover : (r.hit && r.payout ? r.payout : 0);
+    byVerdict[p.verdict].races++;
+    if (r.hit) byVerdict[p.verdict].hits++;
+    byVerdict[p.verdict].profit += (recover - invest);
+  });
+  const verdictTbody = document.getElementById('verdict-stats');
+  verdictTbody.innerHTML = '';
+  Object.entries(byVerdict).forEach(([v, d]) => {
+    const rate = d.races > 0 ? (d.hits/d.races*100).toFixed(1) : '0.0';
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${v}</td><td>${d.races}</td><td>${d.hits}</td><td>${rate}%</td>
+      <td style="color:${d.profit>0?'var(--success)':d.profit<0?'var(--danger)':'var(--muted)'}">¥${d.profit.toLocaleString()}</td>
+    `;
+    verdictTbody.appendChild(tr);
+  });
+  if (Object.keys(byVerdict).length === 0) {
+    verdictTbody.innerHTML = '<tr><td colspan="5" style="color:var(--muted)">データがありません</td></tr>';
+  }
+}
+
+// ============== Settings ==============
+function renderSettings() {
+  Object.keys(state.settings).forEach(key => {
+    const el = document.getElementById('cfg-' + key);
+    if (el) el.value = state.settings[key];
+  });
+}
+
+function saveSettings() {
+  Object.keys(state.settings).forEach(key => {
+    const el = document.getElementById('cfg-' + key);
+    if (el) state.settings[key] = +el.value || 0;
+  });
+  saveToStorage();
+  showToast('設定を保存しました');
+  computeScores();
+}
+
+function resetSettings() {
+  if (!confirm('スコア設定をデフォルトに戻します')) return;
+  state.settings = {...DEFAULT_SETTINGS};
+  renderSettings();
+  saveToStorage();
+  showToast('デフォルトに戻しました');
+  computeScores();
+}
+
+// ============== Venues ==============
+function renderVenuesTab() {
+  const tbody = document.getElementById('venues-tbody');
+  tbody.innerHTML = '';
+  state.venues.forEach((v, i) => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td style="font-weight:600">${v.name}</td>
+      <td>${v.rate}</td>
+      <td><input type="number" value="${v.adj}" step="0.5" data-idx="${i}" data-field="adj" style="width:70px"></td>
+      <td><input type="text" value="${v.memo}" data-idx="${i}" data-field="memo" style="width:90%"></td>
+    `;
+    tbody.appendChild(tr);
+  });
+  tbody.querySelectorAll('input').forEach(el => {
+    el.addEventListener('input', e => {
+      const idx = +e.target.dataset.idx;
+      const field = e.target.dataset.field;
+      state.venues[idx][field] = field === 'adj' ? (+e.target.value || 0) : e.target.value;
+    });
+  });
+}
+
+function saveVenues() {
+  saveToStorage();
+  showToast('会場設定を保存しました');
+  computeScores();
+}
+
+function populateVenueSelect() {
+  const sel = document.getElementById('race-venue');
+  sel.innerHTML = '';
+  state.venues.forEach(v => {
+    const o = document.createElement('option');
+    o.value = v.name; o.textContent = v.name;
+    sel.appendChild(o);
+  });
+}
+
+// ============== URL Load ==============
+const URL_SETTINGS_KEY = 'boatrace_url_settings';
+
+function getUrlSettings() {
+  try {
+    const raw = localStorage.getItem(URL_SETTINGS_KEY);
+    return raw ? JSON.parse(raw) : {url: '', autoload: false};
+  } catch(e) { return {url: '', autoload: false}; }
+}
+
+function setUrlSettings(s) {
+  try { localStorage.setItem(URL_SETTINGS_KEY, JSON.stringify(s)); } catch(e) {}
+}
+
+function openUrlLoadModal() {
+  const modal = document.getElementById('url-load-modal');
+  const settings = getUrlSettings();
+  document.getElementById('url-load-input').value = settings.url || '';
+  document.getElementById('url-load-autoload').checked = !!settings.autoload;
+  modal.classList.remove('hide');
+  document.getElementById('url-load-input').focus();
+}
+
+function closeUrlLoadModal() {
+  document.getElementById('url-load-modal').classList.add('hide');
+}
+
+async function loadJsonFromUrl(silent) {
+  const url = document.getElementById('url-load-input')?.value?.trim() || getUrlSettings().url;
+  const autoload = document.getElementById('url-load-autoload')?.checked || false;
+  if (!url) {
+    if (!silent) showToast('URLを入力してください', true);
+    return false;
+  }
+
+  if (!silent) showToast('読み込み中…');
+  try {
+    // キャッシュ回避のためタイムスタンプ付加
+    const sep = url.includes('?') ? '&' : '?';
+    const fetchUrl = `${url}${sep}_t=${Date.now()}`;
+    const response = await fetch(fetchUrl);
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const data = await response.json();
+    if (!data.state) throw new Error('JSON形式が不正です(state プロパティが必要)');
+
+    state = {
+      settings: {...DEFAULT_SETTINGS, ...(data.state.settings || {})},
+      venues: data.state.venues || JSON.parse(JSON.stringify(VENUES)),
+      predictions: data.state.predictions || [],
+      results: data.state.results || {},
+      playerTags: data.state.playerTags || {},
+      players: data.state.players || {},
+      playersUpdated: data.state.playersUpdated || null,
+      importHistory: data.state.importHistory || [],
+      raceResults: data.state.raceResults || [],
+      autoTagRules: {
+        nigeTh: 70, nigePt: 2, c2Th: 50, c2Pt: 1, c3Th: 50, c3Pt: 1,
+        outTh: 25, outPt: 1.5, stTh: 0.14, stPt: 1, fTh: 3, fPt: -1, localPt: 1,
+        ...(data.state.autoTagRules || {})
+      },
+    };
+    // 必要なら raceHistory を再構築
+    const needsBuild = Object.values(state.players).some(p => !p.raceHistory);
+    if (needsBuild && state.raceResults.length > 0) {
+      rebuildPlayerRaceHistory();
+    }
+
+    saveToStorage();
+    setUrlSettings({url, autoload});
+
+    populateVenueSelect();
+    renderSettings();
+    renderVenuesTab();
+    renderPredictions();
+    renderResults();
+    renderSummary();
+    renderPlayers();
+    renderAutoTagRules();
+    renderTrends();
+    computeScores();
+    closeUrlLoadModal();
+    if (!silent) {
+      const ts = data.savedAt ? new Date(data.savedAt).toLocaleString('ja-JP') : '時刻不明';
+      showToast(`データを読み込みました (${ts}保存分)`);
+    }
+    return true;
+  } catch(e) {
+    if (!silent) {
+      const msg = e.message.includes('Failed to fetch') ? 'URLにアクセスできません(URLが正しいか、公開されているか確認)' : '読み込みエラー: ' + e.message;
+      showToast(msg, true);
+    }
+    console.error(e);
+    return false;
+  }
+}
+
+
+function saveJSON() {
+  const data = {
+    version: 1,
+    savedAt: new Date().toISOString(),
+    state: state,
+  };
+  const blob = new Blob([JSON.stringify(data, null, 2)], {type: 'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const today = new Date().toISOString().slice(0,10);
+  a.href = url;
+  a.download = `競艇データ_${today}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast('JSONを保存しました');
+}
+
+function loadJSON(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    try {
+      const data = JSON.parse(e.target.result);
+      if (data.state) {
+        state = {
+          settings: {...DEFAULT_SETTINGS, ...(data.state.settings || {})},
+          venues: data.state.venues || JSON.parse(JSON.stringify(VENUES)),
+          predictions: data.state.predictions || [],
+          results: data.state.results || {},
+          playerTags: data.state.playerTags || {},
+          players: data.state.players || {},
+          playersUpdated: data.state.playersUpdated || null,
+          importHistory: data.state.importHistory || [],
+          raceResults: data.state.raceResults || [],
+          autoTagRules: {
+            nigeTh: 70, nigePt: 2, c2Th: 50, c2Pt: 1, c3Th: 50, c3Pt: 1,
+            outTh: 25, outPt: 1.5, stTh: 0.14, stPt: 1, fTh: 3, fPt: -1, localPt: 1,
+            ...(data.state.autoTagRules || {})
+          },
+        };
+        saveToStorage();
+        populateVenueSelect();
+        renderSettings();
+        renderVenuesTab();
+        renderPredictions();
+        renderResults();
+        renderSummary();
+        renderPlayers();
+        renderAutoTagRules();
+        computeScores();
+        showToast('データを読み込みました');
+      } else {
+        showToast('JSON形式が不正です', true);
+      }
+    } catch(e) {
+      showToast('読み込みに失敗しました: ' + e.message, true);
+    }
+  };
+  reader.readAsText(file);
+  event.target.value = '';
+}
+
+// ============== Excel Export ==============
+function exportExcel() {
+  const wb = XLSX.utils.book_new();
+
+  // Predictions sheet
+  const predRows = [['日付','会場','R','1号艇スコア','判定','本命','対抗','3番手','4番手','買い目','点数','投資/点','合計投資','メモ']];
+  state.predictions.forEach(p => {
+    predRows.push([
+      p.date, p.venue, p.raceNo, p.top1Score, p.verdict,
+      p.honmei, p.taikou, p.third, p.fourth, p.formation,
+      p.points, p.bet, p.points * p.bet, p.memo
+    ]);
+  });
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(predRows), '予想記録');
+
+  // Results sheet
+  const resRows = [['日付','会場','R','予想本命','1着','2着','3着','3連単配当','本命的中','投資額','回収額','損益']];
+  state.predictions.forEach(p => {
+    const r = state.results[p.id] || {};
+    const invest = p.points * p.bet;
+    const recover = r.recover != null ? r.recover : (r.hit && r.payout ? r.payout : 0);
+    resRows.push([
+      p.date, p.venue, p.raceNo, p.honmei,
+      r.first ?? '', r.second ?? '', r.third ?? '',
+      r.payout ?? '', r.hit ? '○' : '',
+      invest, recover, recover - invest
+    ]);
+  });
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(resRows), '結果記録');
+
+  // Summary
+  let totalRaces = state.predictions.length;
+  let totalHits = 0, totalInvest = 0, totalRecover = 0;
+  state.predictions.forEach(p => {
+    const r = state.results[p.id] || {};
+    if (r.hit) totalHits++;
+    totalInvest += p.points * p.bet;
+    totalRecover += (r.recover != null ? r.recover : (r.hit && r.payout ? r.payout : 0));
+  });
+  const sumRows = [
+    ['項目','値'],
+    ['総レース数', totalRaces],
+    ['本命的中数', totalHits],
+    ['本命的中率', totalRaces > 0 ? (totalHits/totalRaces*100).toFixed(1)+'%' : '0%'],
+    ['総投資額', totalInvest],
+    ['総回収額', totalRecover],
+    ['損益', totalRecover - totalInvest],
+    ['回収率', totalInvest > 0 ? (totalRecover/totalInvest*100).toFixed(1)+'%' : '0%'],
+  ];
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(sumRows), '集計');
+
+  // Settings
+  const setRows = [['項目','値']];
+  Object.entries(state.settings).forEach(([k,v]) => setRows.push([k, v]));
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(setRows), 'スコア設定');
+
+  // Venues
+  const venRows = [['会場','1コース1着率','1号艇補正','メモ']];
+  state.venues.forEach(v => venRows.push([v.name, v.rate, v.adj, v.memo]));
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(venRows), '会場メモ');
+
+  const today = new Date().toISOString().slice(0,10);
+  XLSX.writeFile(wb, `競艇データ_${today}.xlsx`);
+  showToast('Excelを出力しました');
+}
+
+// ============== Reset ==============
+function resetAll() {
+  localStorage.removeItem(STORAGE_KEY);
+  state = {
+    settings: {...DEFAULT_SETTINGS},
+    venues: JSON.parse(JSON.stringify(VENUES)),
+    predictions: [],
+    results: {},
+    playerTags: {},
+    players: {},
+    playersUpdated: null,
+    importHistory: [],
+    raceResults: [],
+    autoTagRules: {
+      nigeTh: 70, nigePt: 2, c2Th: 50, c2Pt: 1, c3Th: 50, c3Pt: 1,
+      outTh: 25, outPt: 1.5, stTh: 0.14, stPt: 1, fTh: 3, fPt: -1, localPt: 1,
+    },
+  };
+  boats = JSON.parse(JSON.stringify(SAMPLE_BOATS));
+  populateVenueSelect();
+  renderSettings();
+  renderVenuesTab();
+  renderBoatsTable();
+  renderBoatTags();
+  renderPredictions();
+  renderResults();
+  renderSummary();
+  renderPlayers();
+  renderAutoTagRules();
+  renderTrends();
+  computeScores();
+  showToast('リセットしました');
+}
+
+// ============== Player DB ==============
+// 公式レイアウト (バイト数). 期別成績の固定長フォーマット
+// 注意: バイト数 (Shift_JIS基準), 日本語は1文字=2バイト
+const PLAYER_LAYOUT = [
+  {key:'regno',     name:'登番',          len:4,  type:'str'},
+  {key:'nameKanji', name:'名前漢字',      len:16, type:'str'},
+  {key:'nameKana',  name:'名前カナ',      len:15, type:'str'},
+  {key:'branch',    name:'支部',          len:4,  type:'str'},
+  {key:'cls',       name:'級',            len:2,  type:'str'},
+  {key:'eraCode',   name:'年号',          len:1,  type:'str'},
+  {key:'birthDate', name:'生年月日',      len:6,  type:'str'},
+  {key:'gender',    name:'性別',          len:1,  type:'str'},
+  {key:'age',       name:'年齢',          len:2,  type:'int'},
+  {key:'height',    name:'身長',          len:3,  type:'int'},
+  {key:'weight',    name:'体重',          len:2,  type:'int'},
+  {key:'bloodType', name:'血液型',        len:2,  type:'str'},
+  {key:'win',       name:'勝率',          len:4,  type:'dec2'},  // 0756 → 7.56
+  {key:'fukuWin',   name:'複勝率',        len:4,  type:'dec1'},  // 0459 → 45.9
+  {key:'firstNum',  name:'1着回数',       len:3,  type:'int'},
+  {key:'secondNum', name:'2着回数',       len:3,  type:'int'},
+  {key:'startNum',  name:'出走回数',      len:3,  type:'int'},
+  {key:'finalNum',  name:'優出回数',      len:2,  type:'int'},
+  {key:'winNum',    name:'優勝回数',      len:2,  type:'int'},
+  {key:'avgST',     name:'平均スタート',  len:3,  type:'dec2'},  // 016 → 0.16
+];
+
+// コース1〜6の進入関連 (4項目 × 6コース = 24)
+for (let c = 1; c <= 6; c++) {
+  PLAYER_LAYOUT.push({key:`course${c}Entry`,  name:`${c}コース進入回数`,    len:3, type:'int'});
+  PLAYER_LAYOUT.push({key:`course${c}Fukusho`,name:`${c}コース複勝率`,      len:4, type:'dec1'});
+  PLAYER_LAYOUT.push({key:`course${c}AvgST`,  name:`${c}コース平均ST`,      len:3, type:'dec2'});
+  PLAYER_LAYOUT.push({key:`course${c}AvgRank`,name:`${c}コース平均ST順位`,  len:3, type:'dec2'});
+}
+
+// 期別情報
+PLAYER_LAYOUT.push({key:'prevCls',   name:'前期級',     len:2, type:'str'});
+PLAYER_LAYOUT.push({key:'prev2Cls',  name:'前々期級',   len:2, type:'str'});
+PLAYER_LAYOUT.push({key:'prev3Cls',  name:'前々々期級', len:2, type:'str'});
+PLAYER_LAYOUT.push({key:'prevIdx',   name:'前期能力指数', len:4, type:'dec2'});
+PLAYER_LAYOUT.push({key:'currIdx',   name:'今期能力指数', len:4, type:'dec2'});
+PLAYER_LAYOUT.push({key:'year',      name:'年',         len:4, type:'int'});
+PLAYER_LAYOUT.push({key:'period',    name:'期',         len:1, type:'int'});
+PLAYER_LAYOUT.push({key:'periodFrom',name:'算出期間自', len:8, type:'str'});
+PLAYER_LAYOUT.push({key:'periodTo',  name:'算出期間至', len:8, type:'str'});
+PLAYER_LAYOUT.push({key:'futureIdx', name:'養成期',     len:3, type:'int'});
+
+// コース別成績 (1〜6コース × 14項目)
+const COURSE_RESULT_KEYS = ['1着','2着','3着','4着','5着','6着','F','L0','L1','K0','K1','S0','S1','S2'];
+for (let c = 1; c <= 6; c++) {
+  COURSE_RESULT_KEYS.forEach((k, i) => {
+    const len = i < 6 ? 3 : 2;  // 着回数=3バイト, F/L/K/S=2バイト
+    PLAYER_LAYOUT.push({key:`course${c}_${k}`, name:`${c}コース${k}回数`, len:len, type:'int'});
+  });
+}
+
+// コースなし
+['L0','L1','K0','K1'].forEach(k => {
+  PLAYER_LAYOUT.push({key:`noCourse_${k}`, name:`コースなし${k}回数`, len:2, type:'int'});
+});
+PLAYER_LAYOUT.push({key:'birthplace', name:'出身地', len:6, type:'str'});
+
+// バイト数の合計 (デバッグ用)
+const PLAYER_LAYOUT_TOTAL_BYTES = PLAYER_LAYOUT.reduce((a,b)=>a+b.len, 0);
+
+// 値変換: 数値型を実数に
+function parsePlayerField(raw, field) {
+  raw = (raw || '').trim();
+  if (raw === '') return null;
+  if (field.type === 'int') return parseInt(raw, 10) || 0;
+  if (field.type === 'dec1') return (parseInt(raw, 10) || 0) / 10;
+  if (field.type === 'dec2') return (parseInt(raw, 10) || 0) / 100;
+  return raw;
+}
+
+// Shift_JIS バイト数で切り出し
+function sjisSubstring(bytes, start, len) {
+  return bytes.slice(start, start + len);
+}
+
+// バイト配列をShift_JISでデコード (TextDecoderが対応)
+async function decodeSjis(file) {
+  const buf = await file.arrayBuffer();
+  try {
+    const decoder = new TextDecoder('shift_jis', {fatal: false});
+    return decoder.decode(buf);
+  } catch(e) {
+    const decoder = new TextDecoder('utf-8', {fatal: false});
+    return decoder.decode(buf);
+  }
+}
+
+// 固定長TXT解析: Shift_JIS バイト基準で切り出す
+async function parseTxtFile(file) {
+  // バイト配列のまま処理する
+  const buf = await file.arrayBuffer();
+  const bytes = new Uint8Array(buf);
+
+  // エンコーディング判定: 最初の数バイトを見てBOMがあればUTF-8
+  let encoding = 'shift_jis';
+  if (bytes.length >= 3 && bytes[0]===0xEF && bytes[1]===0xBB && bytes[2]===0xBF) encoding = 'utf-8';
+  // UTF-8らしいバイトパターンが多ければUTF-8
+  let utf8Score = 0, sjisScore = 0;
+  for (let i = 0; i < Math.min(bytes.length, 1000); i++) {
+    const b = bytes[i];
+    if (b >= 0xE0 && b <= 0xEF) utf8Score++;  // UTF-8の3バイト目
+    if (b >= 0x81 && b <= 0x9F) sjisScore++;  // SJISの2バイト目候補
+  }
+  if (utf8Score > sjisScore * 2) encoding = 'utf-8';
+
+  // 行分割: 改行コード 0x0A, 0x0D を区切りに
+  const lines = [];
+  let lineStart = 0;
+  for (let i = 0; i < bytes.length; i++) {
+    if (bytes[i] === 0x0A) {
+      let end = i;
+      if (end > lineStart && bytes[end-1] === 0x0D) end--;
+      if (end > lineStart) lines.push(bytes.slice(lineStart, end));
+      lineStart = i + 1;
+    }
+  }
+  if (lineStart < bytes.length) lines.push(bytes.slice(lineStart));
+
+  // ヘッダー行(タイトル/区切り)をスキップ。レコード長に近いものだけ採用
+  const decoder = new TextDecoder(encoding === 'utf-8' ? 'utf-8' : 'shift_jis', {fatal: false});
+  const records = [];
+  for (const lineBytes of lines) {
+    if (lineBytes.length < PLAYER_LAYOUT_TOTAL_BYTES - 50) continue;  // 短すぎる行はスキップ
+    if (lineBytes.length > PLAYER_LAYOUT_TOTAL_BYTES + 100) continue;  // 長すぎる行も除外
+
+    // 各フィールドをバイト位置で切り出してデコード
+    let offset = 0;
+    const rec = {};
+    for (const field of PLAYER_LAYOUT) {
+      const slice = lineBytes.slice(offset, offset + field.len);
+      const text = decoder.decode(slice);
+      rec[field.key] = parsePlayerField(text, field);
+      offset += field.len;
+    }
+    if (rec.regno && rec.nameKanji) records.push(rec);
+  }
+  return records;
+}
+
+// CSV / Excel 解析: SheetJSを利用
+async function parseCsvOrExcel(file) {
+  const ext = file.name.toLowerCase().split('.').pop();
+  let rows;
+  if (ext === 'csv') {
+    const text = await file.text();
+    const wb = XLSX.read(text, {type: 'string'});
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    rows = XLSX.utils.sheet_to_json(ws, {defval: ''});
+  } else {
+    const buf = await file.arrayBuffer();
+    const wb = XLSX.read(buf, {type: 'array'});
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    rows = XLSX.utils.sheet_to_json(ws, {defval: ''});
+  }
+
+  // ヘッダー名 → fieldキー のマッピング (柔軟に解釈)
+  const HEADER_MAP = {
+    '登番': 'regno', '登録番号': 'regno',
+    '名前': 'nameKanji', '選手名': 'nameKanji', '氏名': 'nameKanji', '名前漢字': 'nameKanji',
+    'カナ': 'nameKana', '名前カナ': 'nameKana',
+    '支部': 'branch',
+    '級': 'cls', '級別': 'cls',
+    '勝率': 'win', '全国勝率': 'win',
+    '複勝率': 'fukuWin', '全国複勝率': 'fukuWin',
+    '平均ST': 'avgST', '平均スタート': 'avgST', '平均スタートタイミング': 'avgST',
+    '1コース複勝率': 'course1Fukusho', '1コ複勝率': 'course1Fukusho',
+    '2コース複勝率': 'course2Fukusho', '2コ複勝率': 'course2Fukusho',
+    '3コース複勝率': 'course3Fukusho', '3コ複勝率': 'course3Fukusho',
+    '4コース複勝率': 'course4Fukusho', '4コ複勝率': 'course4Fukusho',
+    '5コース複勝率': 'course5Fukusho', '5コ複勝率': 'course5Fukusho',
+    '6コース複勝率': 'course6Fukusho', '6コ複勝率': 'course6Fukusho',
+    '出身地': 'birthplace', '今期能力指数': 'currIdx',
+  };
+
+  // 1コース〜6コースの「○着回数」「F回数」も自動マッピング
+  for (let c = 1; c <= 6; c++) {
+    for (const k of ['1着','2着','3着','4着','5着','6着','F','L0','L1','K0','K1','S0','S1','S2']) {
+      HEADER_MAP[`${c}コース${k}回数`] = `course${c}_${k}`;
+      HEADER_MAP[`${c}コ${k}回数`] = `course${c}_${k}`;
+    }
+  }
+
+  const records = [];
+  for (const row of rows) {
+    const rec = {};
+    for (const [header, val] of Object.entries(row)) {
+      const key = HEADER_MAP[header.trim()];
+      if (key) rec[key] = val;
+    }
+    if (rec.regno && rec.nameKanji) records.push(rec);
+  }
+  return records;
+}
+
+async function importTXT(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  try {
+    showToast('読み込み中…');
+    const records = await parseTxtFile(file);
+    if (records.length === 0) {
+      showToast('レコードが見つかりません。レイアウトが違う可能性', true);
+      return;
+    }
+    const period = detectPeriodFromFilename(file.name);
+    addPlayersFromRecords(records, period?.key, period?.label);
+    const periodMsg = period ? `[${period.label}] ` : '[期不明] ';
+    showToast(`${periodMsg}${records.length}件の選手を登録しました`);
+  } catch(e) {
+    showToast('読み込みエラー: ' + e.message, true);
+    console.error(e);
+  }
+  event.target.value = '';
+}
+
+async function importCSV(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  try {
+    showToast('読み込み中…');
+    const records = await parseCsvOrExcel(file);
+    if (records.length === 0) {
+      showToast('レコードが見つかりません。ヘッダー名を確認してください', true);
+      return;
+    }
+    const period = detectPeriodFromFilename(file.name);
+    addPlayersFromRecords(records, period?.key, period?.label);
+    const periodMsg = period ? `[${period.label}] ` : '[期不明] ';
+    showToast(`${periodMsg}${records.length}件の選手を登録しました`);
+  } catch(e) {
+    showToast('読み込みエラー: ' + e.message, true);
+    console.error(e);
+  }
+  event.target.value = '';
+}
+
+// ファイル名から期を検出
+// 公式の命名規則: fan + YY + MM(04 or 10) または fan + YY + 1/2
+// 例: fan2210 = 2022年10月期(後期=2), fan2304 = 2023年4月期(前期=1)
+function detectPeriodFromFilename(filename) {
+  const m = filename.match(/fan(\d{2})(\d{2})/i);
+  if (m) {
+    const yy = parseInt(m[1], 10);
+    const mm = parseInt(m[2], 10);
+    // 04or03→前期(1), 10or09→後期(2)
+    const year = 2000 + yy;
+    const half = mm <= 6 ? 1 : 2;
+    return {key: `${year}-${half}`, year, half, label: `${year}年${half===1?'前':'後'}期`};
+  }
+  return null;
+}
+
+// 期を比較。"2024-2" > "2024-1" > "2023-2"
+function comparePeriodKeys(a, b) {
+  if (a === b) return 0;
+  const [ay, ah] = a.split('-').map(Number);
+  const [by, bh] = b.split('-').map(Number);
+  if (ay !== by) return ay - by;
+  return ah - bh;
+}
+
+function addPlayersFromRecords(records, periodKey, periodLabel) {
+  records.forEach(r => {
+    const rawName = (r.nameKanji || '').trim();
+    if (!rawName) return;
+    const normName = rawName.replace(/[\s\u3000]+/g, '');
+
+    // F回数合計
+    let fTotal = 0;
+    for (let c = 1; c <= 6; c++) fTotal += (r[`course${c}_F`] || 0);
+
+    const data = {
+      regno: r.regno,
+      branch: (r.branch || '').replace(/[\s\u3000]+/g, ''),
+      cls: r.cls || '',
+      win: r.win || 0,
+      fukuWin: r.fukuWin || 0,
+      avgST: r.avgST || 0,
+      course1Fukusho: r.course1Fukusho || 0,
+      course2Fukusho: r.course2Fukusho || 0,
+      course3Fukusho: r.course3Fukusho || 0,
+      course4Fukusho: r.course4Fukusho || 0,
+      course5Fukusho: r.course5Fukusho || 0,
+      course6Fukusho: r.course6Fukusho || 0,
+      fTotal: fTotal,
+      currIdx: r.currIdx || 0,
+      birthplace: (r.birthplace || '').replace(/[\s\u3000]+/g, ''),
+    };
+
+    // 既存選手データを取得 or 作成
+    let player = state.players[normName];
+    if (!player) {
+      player = {
+        regno: r.regno,
+        name: normName,
+        nameDisplay: rawName,
+        records: {},  // {periodKey: data}
+        manual: {},   // 手入力上書き値
+      };
+      state.players[normName] = player;
+    }
+    // 期データを記録(上書き or 新規)
+    if (periodKey) {
+      player.records[periodKey] = data;
+    } else {
+      player.records['unknown'] = data;
+    }
+  });
+  state.playersUpdated = new Date().toISOString().slice(0, 16).replace('T',' ');
+
+  // インポート履歴
+  if (!state.importHistory) state.importHistory = [];
+  if (periodKey) {
+    const existing = state.importHistory.find(h => h.key === periodKey);
+    if (!existing) {
+      state.importHistory.push({key: periodKey, label: periodLabel, importedAt: state.playersUpdated, count: records.length});
+    } else {
+      existing.importedAt = state.playersUpdated;
+      existing.count = records.length;
+    }
+    state.importHistory.sort((a,b) => comparePeriodKeys(b.key, a.key));
+  }
+  rebuildPlayerRaceHistory();
+  saveToStorage();
+  renderPlayers();
+}
+
+// 選手の「現在使うべきデータ」を取得
+// 優先度: manual > 最新期 > 古い期
+function getPlayerCurrentData(player) {
+  const periodKeys = Object.keys(player.records || {}).filter(k => k !== 'unknown')
+    .sort((a, b) => comparePeriodKeys(b, a));  // 新しい順
+  const latestKey = periodKeys[0] || 'unknown';
+  const latest = player.records[latestKey] || {};
+  // manualで上書き可能なフィールドを適用
+  const result = {...latest};
+  Object.entries(player.manual || {}).forEach(([k, v]) => {
+    if (v !== null && v !== undefined && v !== '') result[k] = v;
+  });
+  result._latestPeriodKey = latestKey;
+  result._regno = player.regno;
+  result._name = player.name;
+  result._nameDisplay = player.nameDisplay;
+  return result;
+}
+
+function renderPlayers() {
+  document.getElementById('player-count').textContent = Object.keys(state.players).length;
+  document.getElementById('player-updated').textContent = state.playersUpdated || '―';
+
+  // インポート履歴の表示
+  const histEl = document.getElementById('import-history');
+  if (histEl) {
+    const history = state.importHistory || [];
+    if (history.length === 0) {
+      histEl.innerHTML = '<span style="color:var(--muted)">未インポート</span>';
+    } else {
+      histEl.innerHTML = history.map(h =>
+        `<span class="tag active" style="font-size:11px">${h.label} (${h.count}件)</span>`
+      ).join(' ');
+    }
+  }
+
+  const search = (document.getElementById('player-search').value || '').trim().toLowerCase();
+  const tbody = document.getElementById('players-tbody');
+  tbody.innerHTML = '';
+  const list = Object.values(state.players);
+  const filtered = search ? list.filter(p =>
+    (p.name||'').toLowerCase().includes(search) || (p.regno||'').toString().includes(search)
+  ) : list;
+
+  filtered.slice(0, 200).forEach(p => {
+    const cur = getPlayerCurrentData(p);
+    const periodCount = Object.keys(p.records || {}).length;
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${p.regno||'―'}</td>
+      <td style="text-align:left;font-weight:600">${p.name}</td>
+      <td>${cur.branch||'―'}</td>
+      <td>${cur.cls||'―'}</td>
+      <td>${(cur.win||0).toFixed(2)}</td>
+      <td>${(cur.avgST||0).toFixed(2)}</td>
+      <td>${(cur.course1Fukusho||0).toFixed(1)}</td>
+      <td>${(cur.course2Fukusho||0).toFixed(1)}</td>
+      <td>${(cur.course3Fukusho||0).toFixed(1)}</td>
+      <td>${(cur.course4Fukusho||0).toFixed(1)}</td>
+      <td>${(cur.course5Fukusho||0).toFixed(1)}</td>
+      <td>${(cur.course6Fukusho||0).toFixed(1)}</td>
+      <td>${cur.fTotal||0}</td>
+      <td>
+        <button class="btn" style="padding:4px 8px;font-size:11px" onclick="showPlayerDetail('${p.name.replace(/'/g,"\\'")}')">${periodCount}期</button>
+        <button class="btn btn-danger" style="padding:4px 8px;font-size:11px;margin-left:4px" onclick="deletePlayer('${p.name.replace(/'/g,"\\'")}')">削除</button>
+      </td>
+    `;
+    tbody.appendChild(tr);
+  });
+  if (filtered.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="14" style="color:var(--muted);padding:20px">データがありません</td></tr>';
+  } else if (filtered.length > 200) {
+    tbody.innerHTML += `<tr><td colspan="14" style="color:var(--muted)">残り ${filtered.length - 200} 件は検索で絞ってください</td></tr>`;
+  }
+}
+
+// 選手の期推移詳細を表示するモーダル
+function showPlayerDetail(name) {
+  const player = state.players[name];
+  if (!player) return;
+  const periodKeys = Object.keys(player.records).sort((a, b) => comparePeriodKeys(b, a));
+
+  // モーダルHTMLを動的生成
+  let html = `
+    <div class="modal" style="max-width:780px">
+      <h3>${player.nameDisplay || player.name} <span style="color:var(--muted);font-size:13px;font-weight:400">(登番 ${player.regno||'―'})</span></h3>
+      <p class="note" style="margin-bottom:14px">期ごとの推移。最新期がスコア表で自動補完される値です。</p>
+      <div class="table-wrap" style="max-height:400px">
+        <table>
+          <thead>
+            <tr>
+              <th>期</th><th>級</th><th>支部</th><th>勝率</th><th>平均ST</th>
+              <th>1コ複勝</th><th>2コ複勝</th><th>3コ複勝</th><th>4コ複勝</th><th>5コ複勝</th><th>6コ複勝</th>
+              <th>F合計</th><th>能力指数</th>
+            </tr>
+          </thead>
+          <tbody>
+  `;
+  if (periodKeys.length === 0) {
+    html += '<tr><td colspan="13" style="color:var(--muted)">データなし</td></tr>';
+  } else {
+    periodKeys.forEach((pk, idx) => {
+      const d = player.records[pk];
+      const label = pk === 'unknown' ? '期不明' : pk;
+      const latestMark = idx === 0 ? ' <span style="color:var(--success);font-weight:700">●最新</span>' : '';
+      html += `
+        <tr ${idx===0?'style="background:rgba(63,185,80,0.08)"':''}>
+          <td style="font-weight:600">${label}${latestMark}</td>
+          <td>${d.cls||'―'}</td>
+          <td>${d.branch||'―'}</td>
+          <td>${(d.win||0).toFixed(2)}</td>
+          <td>${(d.avgST||0).toFixed(2)}</td>
+          <td>${(d.course1Fukusho||0).toFixed(1)}</td>
+          <td>${(d.course2Fukusho||0).toFixed(1)}</td>
+          <td>${(d.course3Fukusho||0).toFixed(1)}</td>
+          <td>${(d.course4Fukusho||0).toFixed(1)}</td>
+          <td>${(d.course5Fukusho||0).toFixed(1)}</td>
+          <td>${(d.course6Fukusho||0).toFixed(1)}</td>
+          <td>${d.fTotal||0}</td>
+          <td>${(d.currIdx||0).toFixed(2)}</td>
+        </tr>
+      `;
+    });
+  }
+  html += '</tbody></table></div>';
+
+  // 全期平均
+  if (periodKeys.length >= 2) {
+    let sumWin=0, sumST=0, sumC1=0, sumF=0, n=0;
+    periodKeys.forEach(pk => {
+      const d = player.records[pk];
+      if (d.win) { sumWin += d.win; n++; }
+      sumST += (d.avgST || 0);
+      sumC1 += (d.course1Fukusho || 0);
+      sumF += (d.fTotal || 0);
+    });
+    if (n > 0) {
+      const cnt = periodKeys.length;
+      html += `
+        <div style="margin-top:16px; padding:12px; background:var(--panel-2); border-radius:8px">
+          <div style="color:var(--accent-2); font-weight:600; margin-bottom:8px">📊 全期平均 (${cnt}期分)</div>
+          <div style="display:flex; gap:18px; flex-wrap:wrap; font-size:13px">
+            <span>勝率: <b>${(sumWin/n).toFixed(2)}</b></span>
+            <span>平均ST: <b>${(sumST/cnt).toFixed(2)}</b></span>
+            <span>1コ複勝率: <b>${(sumC1/cnt).toFixed(1)}%</b></span>
+            <span>F合計: <b>${sumF}回</b></span>
+          </div>
+        </div>
+      `;
+      // 推移コメント
+      if (periodKeys.length >= 2) {
+        const latest = player.records[periodKeys[0]];
+        const prev = player.records[periodKeys[1]];
+        const winDiff = (latest.win||0) - (prev.win||0);
+        let trendMsg = '';
+        if (winDiff >= 0.5) trendMsg = '📈 勝率が大幅上昇中（要注目）';
+        else if (winDiff >= 0.2) trendMsg = '↗ 勝率がやや上昇';
+        else if (winDiff <= -0.5) trendMsg = '📉 勝率が大幅下降中（要警戒）';
+        else if (winDiff <= -0.2) trendMsg = '↘ 勝率がやや下降';
+        else trendMsg = '→ 勝率は安定';
+        html += `<div style="margin-top:10px; font-size:13px; color:var(--accent)">${trendMsg} (前期差: ${winDiff>=0?'+':''}${winDiff.toFixed(2)})</div>`;
+      }
+    }
+  }
+
+  // 直近レース履歴(コース別平均着順+調子推定)
+  const analysis = analyzePlayerHistory(player);
+  if (analysis && analysis.totalRaces > 0) {
+    html += `<div style="margin-top:16px;padding:14px;background:var(--panel-2);border-radius:8px">
+      <div style="color:var(--accent);font-weight:600;margin-bottom:10px;font-size:14px">🏁 直近レース履歴 (${analysis.totalRaces}走 / 直近${analysis.recentCount}走分析)</div>`;
+
+    if (analysis.avgRank !== null) {
+      html += `
+        <div style="display:flex;gap:18px;flex-wrap:wrap;font-size:13px;margin-bottom:10px">
+          <span>直近平均着順: <b>${analysis.avgRank.toFixed(2)}着</b></span>
+          <span>調子判定: <b style="color:${analysis.trendColor}">${analysis.trend}</b></span>
+        </div>
+        <div style="font-size:12px;color:var(--muted);margin-bottom:10px">
+          直近の着順: ${analysis.recentRanks.map(r => {
+            const c = r <= 2 ? 'var(--success)' : r === 3 ? 'var(--warning)' : 'var(--danger)';
+            return `<b style="color:${c}">${r}</b>`;
+          }).join(' → ')}
+        </div>
+      `;
+    }
+
+    // コース別の平均着順
+    html += `<div style="font-size:12px;color:var(--muted);margin-bottom:6px;font-weight:600">コース別の平均着順</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">`;
+    for (let c = 1; c <= 6; c++) {
+      const ca = analysis.courseAvg[c];
+      if (!ca) {
+        html += `<div style="padding:6px 10px;background:var(--bg);border:1px solid var(--border);border-radius:6px;font-size:12px;color:var(--muted)">${c}コ 経験なし</div>`;
+      } else {
+        const color = ca.avg <= 2.5 ? 'var(--success)' : ca.avg <= 3.5 ? 'var(--warning)' : 'var(--danger)';
+        html += `<div style="padding:6px 10px;background:var(--bg);border:1px solid var(--border);border-radius:6px;font-size:12px">
+          <b>${c}コ</b> <b style="color:${color}">${ca.avg.toFixed(2)}着</b> <span style="color:var(--muted)">(${ca.count}回)</span>
+        </div>`;
+      }
+    }
+    html += `</div>`;
+
+    // 直近10走のテーブル
+    const recent = analysis.recent.slice().reverse();  // 新しい順
+    if (recent.length > 0) {
+      html += `<div style="margin-top:14px"><div style="font-size:12px;color:var(--muted);margin-bottom:6px;font-weight:600">直近のレース履歴</div>
+        <div class="table-wrap" style="max-height:200px">
+          <table><thead><tr><th>日付</th><th>会場</th><th>R</th><th>グレード</th><th>進入</th><th>着順</th></tr></thead><tbody>`;
+      recent.forEach(h => {
+        const rankColor = h.rank <= 2 ? 'var(--success)' : h.rank === 3 ? 'var(--warning)' : 'var(--danger)';
+        html += `<tr>
+          <td>${h.date}</td><td>${h.venue}</td><td>${h.raceNo}R</td>
+          <td style="font-size:11px;color:var(--muted)">${h.grade}/${h.raceType}</td>
+          <td>${h.entryCourse}コ</td>
+          <td style="font-weight:700;color:${rankColor}">${h.rank}着</td>
+        </tr>`;
+      });
+      html += `</tbody></table></div></div>`;
+    }
+    html += `</div>`;
+  }
+
+  html += `
+    <div class="modal-actions">
+      <button class="btn btn-primary" onclick="closePlayerDetailModal()">閉じる</button>
+    </div>
+  </div>
+  `;
+
+  // モーダル表示
+  let modal = document.getElementById('player-detail-modal');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'player-detail-modal';
+    modal.className = 'modal-bg';
+    document.body.appendChild(modal);
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) closePlayerDetailModal();
+    });
+  }
+  modal.innerHTML = html;
+  modal.classList.remove('hide');
+}
+
+function closePlayerDetailModal() {
+  const m = document.getElementById('player-detail-modal');
+  if (m) m.classList.add('hide');
+}
+
+function deletePlayer(name) {
+  if (!confirm(`「${name}」を削除しますか？`)) return;
+  delete state.players[name];
+  saveToStorage();
+  renderPlayers();
+}
+
+function clearPlayers() {
+  state.players = {};
+  state.playersUpdated = null;
+  state.importHistory = [];
+  saveToStorage();
+  renderPlayers();
+  showToast('選手データを削除しました');
+}
+
+function renderAutoTagRules() {
+  const r = state.autoTagRules;
+  const map = {
+    'auto-nige-th': r.nigeTh, 'auto-nige-pt': r.nigePt,
+    'auto-2c-th': r.c2Th, 'auto-2c-pt': r.c2Pt,
+    'auto-3c-th': r.c3Th, 'auto-3c-pt': r.c3Pt,
+    'auto-out-th': r.outTh, 'auto-out-pt': r.outPt,
+    'auto-st-th': r.stTh, 'auto-st-pt': r.stPt,
+    'auto-f-th': r.fTh, 'auto-f-pt': r.fPt,
+    'auto-local-pt': r.localPt,
+  };
+  for (const [id, val] of Object.entries(map)) {
+    const el = document.getElementById(id);
+    if (el) el.value = val;
+  }
+}
+
+function saveAutoTagRules() {
+  const get = id => +document.getElementById(id).value || 0;
+  state.autoTagRules = {
+    nigeTh: get('auto-nige-th'), nigePt: get('auto-nige-pt'),
+    c2Th: get('auto-2c-th'), c2Pt: get('auto-2c-pt'),
+    c3Th: get('auto-3c-th'), c3Pt: get('auto-3c-pt'),
+    outTh: get('auto-out-th'), outPt: get('auto-out-pt'),
+    stTh: get('auto-st-th'), stPt: get('auto-st-pt'),
+    fTh: get('auto-f-th'), fPt: get('auto-f-pt'),
+    localPt: get('auto-local-pt'),
+  };
+  saveToStorage();
+  showToast('自動タグルールを保存しました');
+}
+
+// 会場名から支部名への簡易マッピング (一部のみ。完全一致は難しいので参考)
+const VENUE_BRANCH_MAP = {
+  '桐生':'群馬','戸田':'埼玉','江戸川':'東京','平和島':'東京','多摩川':'東京',
+  '浜名湖':'静岡','蒲郡':'愛知','常滑':'愛知','津':'三重','三国':'福井',
+  '琵琶湖':'滋賀','住之江':'大阪','尼崎':'兵庫','鳴門':'徳島','丸亀':'香川',
+  '児島':'岡山','宮島':'広島','徳山':'山口','下関':'山口','若松':'福岡',
+  '芦屋':'福岡','福岡':'福岡','唐津':'佐賀','大村':'長崎',
+};
+
+function generatePlayerTags(player, venue) {
+  const tags = [];
+  const r = state.autoTagRules;
+  if ((player.course1Fukusho || 0) >= r.nigeTh) tags.push({name:'逃げ巧者', points:r.nigePt, active:false});
+  if ((player.course2Fukusho || 0) >= r.c2Th) tags.push({name:'2コース巧者', points:r.c2Pt, active:false});
+  if ((player.course3Fukusho || 0) >= r.c3Th) tags.push({name:'3コース巧者', points:r.c3Pt, active:false});
+  if (Math.max(player.course5Fukusho||0, player.course6Fukusho||0) >= r.outTh) tags.push({name:'アウト巧者', points:r.outPt, active:false});
+  if ((player.avgST || 99) > 0 && (player.avgST || 99) <= r.stTh) tags.push({name:'スタート巧者', points:r.stPt, active:false});
+  if ((player.fTotal || 0) >= r.fTh) tags.push({name:'F多め', points:r.fPt, active:false});
+  // 地元判定
+  if (venue && player.branch) {
+    const venueBranch = VENUE_BRANCH_MAP[venue];
+    if (venueBranch && player.branch.includes(venueBranch)) {
+      tags.push({name:`地元(${player.branch})`, points:r.localPt, active:false});
+    }
+  }
+  return tags;
+}
+
+// 選手名→DBルックアップ。一致した選手データをboatに反映
+function autoFillFromPlayerDB(boatIdx, query) {
+  const q = (query || '').trim();
+  if (!q) return false;
+
+  // 1. 登番(3-4桁数字)で検索
+  if (/^\d{3,4}$/.test(q)) {
+    const found = Object.values(state.players).find(p => p.regno === q || p.regno === q.padStart(4,'0'));
+    if (found) return applyPlayerData(boatIdx, found);
+  }
+
+  // 2. 名前(スペース除去で完全一致)
+  const normQuery = q.replace(/[\s\u3000]+/g, '');
+  let player = state.players[normQuery];
+
+  // 3. 部分一致
+  if (!player) {
+    const candidates = Object.values(state.players).filter(p =>
+      p.name.includes(normQuery) || normQuery.includes(p.name)
+    );
+    if (candidates.length === 1) player = candidates[0];
+  }
+
+  if (!player) return false;
+  return applyPlayerData(boatIdx, player);
+}
+
+function applyPlayerData(boatIdx, player) {
+  const b = boats[boatIdx];
+  const cur = getPlayerCurrentData(player);
+
+  b.name = player.name;
+  if (cur.cls) b.cls = cur.cls;
+  if (cur.win) b.win = cur.win;
+  if (cur.avgST) b.st = cur.avgST;
+
+  // 既存タグから自動付与系を除いた手動タグだけ残す
+  const AUTO_TAG_NAMES = ['逃げ巧者','2コース巧者','3コース巧者','アウト巧者','スタート巧者','F多め',
+    '🔥 絶好調','👍 好調','→ 安定(中位)','📈 上昇中','↘ やや下降中','📉 下降中','📈 上向き','⚠️ 不調','⚠️ 低迷'];
+  const manualTags = (b.tags || []).filter(t => !AUTO_TAG_NAMES.includes(t.name) && !t.name.startsWith('地元(') && !t.name.startsWith('Nコース成績'));
+
+  // 自動タグ生成
+  const venue = document.getElementById('race-venue').value;
+  const autoTags = generatePlayerTagsFromData(cur, venue);
+
+  // 直近成績による調子推定タグ
+  const analysis = analyzePlayerHistory(player);
+  if (analysis && analysis.avgRank !== null) {
+    const t = analysis.trend;
+    let pt = 0;
+    if (t.includes('絶好調')) pt = 2;
+    else if (t.includes('好調')) pt = 1;
+    else if (t.includes('上昇')) pt = 1;
+    else if (t.includes('下降')) pt = -1;
+    else if (t.includes('不調')) pt = -1.5;
+    else if (t.includes('低迷')) pt = -2;
+    if (pt !== 0 || t.includes('安定')) {
+      autoTags.push({name: t, points: pt, active: false});
+    }
+  }
+
+  // このコースでの過去成績タグ
+  if (analysis && analysis.courseAvg[b.no]) {
+    const ca = analysis.courseAvg[b.no];
+    if (ca.count >= 2) {
+      let pt = 0;
+      if (ca.avg <= 2.0) pt = 1.5;
+      else if (ca.avg <= 2.8) pt = 0.5;
+      else if (ca.avg >= 4.5) pt = -1;
+      autoTags.push({name: `${b.no}コ成績 平均${ca.avg.toFixed(1)}着(${ca.count}走)`, points: pt, active: false});
+    }
+  }
+
+  b.tags = [...autoTags, ...manualTags];
+  if (state.playerTags[player.name]) {
+    state.playerTags[player.name].forEach(t => {
+      if (!b.tags.find(existing => existing.name === t.name)) {
+        b.tags.push({...t});
+      }
+    });
+  }
+  return true;
+}
+
+// 選手の直近レース履歴を分析
+function analyzePlayerHistory(player, opts = {}) {
+  const history = (player.raceHistory || []);
+  if (history.length === 0) return null;
+
+  const lookback = opts.lookback || 10;  // 直近何レース見るか
+  const recent = history.slice(-lookback);
+
+  // コース別の平均着順
+  const byCourse = {};
+  for (let c = 1; c <= 6; c++) byCourse[c] = {ranks: [], count: 0};
+  history.forEach(h => {
+    if (h.entryCourse >= 1 && h.entryCourse <= 6 && h.rank >= 1 && h.rank <= 6) {
+      byCourse[h.entryCourse].ranks.push(h.rank);
+      byCourse[h.entryCourse].count++;
+    }
+  });
+  const courseAvg = {};
+  for (let c = 1; c <= 6; c++) {
+    if (byCourse[c].count > 0) {
+      const sum = byCourse[c].ranks.reduce((a,b)=>a+b, 0);
+      courseAvg[c] = {avg: sum / byCourse[c].count, count: byCourse[c].count};
+    } else {
+      courseAvg[c] = null;
+    }
+  }
+
+  // 調子推定: 直近の着順の並び・平均・トレンド
+  const recentRanks = recent.filter(h => h.rank >= 1 && h.rank <= 6).map(h => h.rank);
+  let trend = '―';
+  let trendColor = 'var(--muted)';
+  let avgRank = null;
+  if (recentRanks.length >= 3) {
+    avgRank = recentRanks.reduce((a,b)=>a+b, 0) / recentRanks.length;
+    // 前半と後半で比較
+    const half = Math.floor(recentRanks.length / 2);
+    const firstHalf = recentRanks.slice(0, half);
+    const secondHalf = recentRanks.slice(-half);
+    const firstAvg = firstHalf.reduce((a,b)=>a+b, 0) / firstHalf.length;
+    const secondAvg = secondHalf.reduce((a,b)=>a+b, 0) / secondHalf.length;
+    const diff = firstAvg - secondAvg;  // 着順下がってる(平均値小さくなった)なら正
+    if (avgRank <= 2.5) {
+      if (diff >= 0.5) { trend = '🔥 絶好調'; trendColor = 'var(--success)'; }
+      else if (diff <= -0.5) { trend = '↘ やや下降中'; trendColor = 'var(--warning)'; }
+      else { trend = '👍 好調'; trendColor = 'var(--success)'; }
+    } else if (avgRank <= 3.5) {
+      if (diff >= 0.5) { trend = '📈 上昇中'; trendColor = 'var(--success)'; }
+      else if (diff <= -0.5) { trend = '📉 下降中'; trendColor = 'var(--danger)'; }
+      else { trend = '→ 安定(中位)'; trendColor = 'var(--muted)'; }
+    } else {
+      if (diff >= 0.5) { trend = '📈 上向き'; trendColor = 'var(--warning)'; }
+      else if (diff <= -0.5) { trend = '⚠️ 不調'; trendColor = 'var(--danger)'; }
+      else { trend = '⚠️ 低迷'; trendColor = 'var(--danger)'; }
+    }
+  }
+
+  return {
+    totalRaces: history.length,
+    recentCount: recent.length,
+    courseAvg,
+    recentRanks,
+    avgRank,
+    trend,
+    trendColor,
+    recent,
+  };
+}
+
+// 選手の特定コースでの過去成績テキストを生成
+function formatCourseAnalysis(player, lane) {
+  const a = analyzePlayerHistory(player);
+  if (!a || !a.courseAvg[lane]) return '';
+  const ca = a.courseAvg[lane];
+  return `${lane}コース ${ca.count}回, 平均${ca.avg.toFixed(1)}着`;
+}
+
+// 旧generatePlayerTagsをdata版にラップ
+function generatePlayerTagsFromData(data, venue) {
+  return generatePlayerTags(data, venue);
+}
+
+// ============== Race Results (競走成績) ==============
+// 会場コード→名前マッピング(公式仕様)
+const VENUE_CODE_MAP = {
+  '01':'桐生','02':'戸田','03':'江戸川','04':'平和島','05':'多摩川',
+  '06':'浜名湖','07':'蒲郡','08':'常滑','09':'津','10':'三国',
+  '11':'琵琶湖','12':'住之江','13':'尼崎','14':'鳴門','15':'丸亀',
+  '16':'児島','17':'宮島','18':'徳山','19':'下関','20':'若松',
+  '21':'芦屋','22':'福岡','23':'唐津','24':'大村',
+};
+
+// ファイル名から日付検出: K240101.TXT → 2024-01-01
+function detectDateFromKFilename(filename) {
+  const m = filename.match(/K(\d{2})(\d{2})(\d{2})/i);
+  if (m) {
+    const yy = parseInt(m[1], 10);
+    const mm = m[2];
+    const dd = m[3];
+    return `20${m[1]}-${mm}-${dd}`;
+  }
+  return null;
+}
+
+// レース種別を正規化
+function normalizeRaceType(raw) {
+  const r = (raw || '').replace(/[\s　]+/g, '');
+  if (!r) return '一般';
+  if (r.includes('優勝戦') && !r.includes('準')) return '優勝戦';
+  if (r.includes('準優')) return '準優勝戦';
+  if (r.includes('予選')) return '予選';
+  if (r.includes('特選') || r.includes('特賞') || r.includes('選抜') || r.includes('ドリーム') || r.includes('特別')) return '特選';
+  return '一般';
+}
+
+// 節タイトルからグレードを推定
+function detectGradeFromTitle(title) {
+  const t = (title || '').replace(/[\s　]+/g, '');
+  if (!t) return '一般';
+  // SG: 主要SG競走の固有名で判定
+  const sgKeywords = ['ＳＧ','SG','グランプリ','賞金王','クラシック','ボートレースダービー','オールスター','メモリアル','チャレンジカップ','チャンピオンカップ','鳳凰賞','レディースチャンピオン','宝舟杯','オーシャンカップ'];
+  if (sgKeywords.some(k => t.includes(k))) return 'SG';
+  // PG1
+  if (t.includes('ＰＧ１') || t.includes('PG1') || t.includes('レディースオール')) return 'PG1';
+  // G1
+  const g1Keywords = ['Ｇ１','G1','周年記念','ヤングダービー','マスターズチャンピオン','クイーンズクライマックス','名人戦','地区選手権'];
+  if (g1Keywords.some(k => t.includes(k))) return 'G1';
+  // G2
+  if (t.includes('Ｇ２') || t.includes('G2') || t.includes('モーターボート大賞')) return 'G2';
+  // G3
+  if (t.includes('Ｇ３') || t.includes('G3') || t.includes('企業杯')) return 'G3';
+  return '一般';
+}
+
+// 競走成績ファイルのパース
+async function parseRaceResultFile(file) {
+  const buf = await file.arrayBuffer();
+  const bytes = new Uint8Array(buf);
+  const decoder = new TextDecoder('shift_jis', {fatal: false});
+  const text = decoder.decode(bytes);
+
+  const date = detectDateFromKFilename(file.name);
+
+  // 会場ブロックを分割
+  const venuePattern = /(\d{2})KBGN/g;
+  const matches = [];
+  let m;
+  while ((m = venuePattern.exec(text)) !== null) {
+    matches.push({code: m[1], start: m.index});
+  }
+
+  const results = [];
+  for (let i = 0; i < matches.length; i++) {
+    const {code, start} = matches[i];
+    const end = matches[i+1] ? matches[i+1].start : text.length;
+    let block = text.slice(start, end);
+    const endIdx = block.indexOf(`${code}KEND`);
+    if (endIdx >= 0) block = block.slice(0, endIdx);
+
+    const venueName = VENUE_CODE_MAP[code] || `?${code}`;
+
+    // 節タイトルを抽出: ヘッダ行の数行下に出てくる
+    let raceTitle = '';
+    const blockLines = block.split(/\r?\n/);
+    for (const ln of blockLines.slice(0, 15)) {
+      const stripped = ln.trim();
+      if (!stripped) continue;
+      // 除外条件: 成績ヘッダ・日付行・装飾行・払戻一覧行
+      if (stripped.includes('成績') || stripped.includes('内容') || stripped.includes('払戻') ||
+          stripped.includes('＊') || stripped.startsWith('-') ||
+          /^\d/.test(stripped) || /\d{4}\/\s*\d/.test(stripped) ||
+          stripped.includes('ボートレース　') || stripped.includes('ボートレース ') ||
+          /^第\s*\d+日/.test(stripped) || stripped.includes('[')) continue;
+      // タイトルらしい行を採用
+      if (stripped.includes('杯') || stripped.includes('記念') ||
+          stripped.includes('競走') || stripped.includes('選手権') || stripped.includes('プロジェクト') ||
+          stripped.includes('盃') || stripped.includes('大会') || stripped.includes('特別') ||
+          stripped.includes('争奪') || stripped.includes('決定戦') || stripped.includes('カップ') ||
+          stripped.includes('賞') || stripped.includes('クラシック') || stripped.includes('ダービー') ||
+          stripped.includes('ＳＧ') || stripped.includes('Ｇ１') || stripped.includes('Ｇ２') || stripped.includes('Ｇ３') ||
+          (stripped.includes('ボートレース') && !stripped.match(/^ボートレース[　 ]/))) {
+        raceTitle = stripped;
+        break;
+      }
+    }
+    const grade = detectGradeFromTitle(raceTitle);
+
+    // 各レースの種別(レースヘッダから)
+    // " 1R       予選　　　　                 H1800m  晴　  風  北　　 3m  波　  2cm"
+    const raceHeaderPattern = /\s*(\d{1,2})R\s+([^\s　]+(?:[^H]*?)?)\s+H\d/g;
+    const raceTypes = {};
+    let rh;
+    while ((rh = raceHeaderPattern.exec(block)) !== null) {
+      raceTypes[parseInt(rh[1], 10)] = normalizeRaceType(rh[2]);
+    }
+
+    // 各レースのレース結果詳細(着順・選手・コース)
+    // " 1R       予選..." の後に
+    // "  着 艇 登番 ..." → "  01  1 3501 ..." の形式
+    const detailPattern = /\s*(\d{1,2})R\s+\S[^\r\n]*?H\d[^\r\n]*[\r\n]+[\s\S]+?-{30,}[\r\n]+([\s\S]+?)(?=\r?\n\s*単勝|\r?\n\s*\d{1,2}R\s|\r?\n[A-Z]{2,})/g;
+    const raceDetails = {};  // {raceNo: [{rank, lane, regno, finished}]}
+    let dm;
+    while ((dm = detailPattern.exec(block)) !== null) {
+      const raceNo = parseInt(dm[1], 10);
+      const body = dm[2];
+      const rows = [];
+      body.split(/\r?\n/).forEach(line => {
+        // "  01  1 3501 川上..."
+        const rm = line.match(/^\s*(\d{2})\s+(\d)\s+(\d{4})\s+(.+?)\s+\d+\s+\d+\s+[\d.]+\s+(\d)\s/);
+        if (!rm) return;
+        const rank = parseInt(rm[1], 10);
+        const lane = parseInt(rm[2], 10);
+        const regno = rm[3];
+        const entryCourse = parseInt(rm[5], 10);
+        rows.push({rank, lane, regno, entryCourse, finished: rank >= 1 && rank <= 6});
+      });
+      if (rows.length > 0) raceDetails[raceNo] = rows;
+    }
+
+    // 払戻金一覧行
+    for (const line of blockLines) {
+      const lm = line.match(/^\s*(\d{1,2})R\s+(\d-\d-\d)\s+(\d+)/);
+      if (!lm) continue;
+      const raceNo = parseInt(lm[1], 10);
+      const trif = lm[2];
+      const trifPay = parseInt(lm[3], 10);
+      const finishers = trif.split('-').map(x => parseInt(x, 10));
+
+      results.push({
+        date: date,
+        venue: venueName,
+        venueCode: code,
+        raceNo: raceNo,
+        first: finishers[0],
+        second: finishers[1],
+        third: finishers[2],
+        trifectaPayout: trifPay,
+        grade: grade,
+        raceType: raceTypes[raceNo] || '一般',
+        title: raceTitle,
+        details: raceDetails[raceNo] || null,  // 選手別の詳細結果
+      });
+    }
+  }
+  return results;
+}
+
+// 選手の直近レース履歴を更新(レース結果データから)
+function rebuildPlayerRaceHistory() {
+  // 全選手のhistoryをクリア
+  Object.values(state.players).forEach(p => { p.raceHistory = []; });
+
+  // 全レース結果から選手×レースのマッピングを構築
+  (state.raceResults || []).forEach(r => {
+    if (!r.details || !r.date) return;
+    r.details.forEach(d => {
+      // 登番で選手を検索
+      const player = Object.values(state.players).find(p => p.regno === d.regno);
+      if (!player) return;
+      if (!player.raceHistory) player.raceHistory = [];
+      player.raceHistory.push({
+        date: r.date,
+        venue: r.venue,
+        raceNo: r.raceNo,
+        grade: r.grade,
+        raceType: r.raceType,
+        lane: d.lane,
+        entryCourse: d.entryCourse,
+        rank: d.rank,
+      });
+    });
+  });
+  // 日付昇順
+  Object.values(state.players).forEach(p => {
+    if (p.raceHistory) p.raceHistory.sort((a,b) => a.date.localeCompare(b.date) || a.raceNo - b.raceNo);
+  });
+}
+
+async function importRaceResults(event) {
+  const files = Array.from(event.target.files);
+  if (files.length === 0) return;
+  try {
+    showToast(`${files.length}ファイル読み込み中…`);
+    let totalAdded = 0;
+    let totalSkipped = 0;
+    for (const file of files) {
+      const records = await parseRaceResultFile(file);
+      // 重複チェック(同じ日付・会場・R)
+      records.forEach(r => {
+        if (!r.date) return;  // 日付不明はスキップ
+        const exists = state.raceResults.find(x =>
+          x.date === r.date && x.venueCode === r.venueCode && x.raceNo === r.raceNo
+        );
+        if (exists) {
+          // 上書き(最新を信用)
+          Object.assign(exists, r);
+          totalSkipped++;
+        } else {
+          state.raceResults.push(r);
+          totalAdded++;
+        }
+      });
+    }
+    // 日付昇順でソート
+    state.raceResults.sort((a, b) => {
+      if (a.date !== b.date) return a.date.localeCompare(b.date);
+      if (a.venueCode !== b.venueCode) return a.venueCode.localeCompare(b.venueCode);
+      return a.raceNo - b.raceNo;
+    });
+    rebuildPlayerRaceHistory();
+    saveToStorage();
+    renderTrends();
+    showToast(`${totalAdded}レース追加 (${totalSkipped}件は上書き)`);
+  } catch(e) {
+    showToast('読み込みエラー: ' + e.message, true);
+    console.error(e);
+  }
+  event.target.value = '';
+}
+
+function clearRaceResults() {
+  state.raceResults = [];
+  saveToStorage();
+  renderTrends();
+  showToast('レース結果を削除しました');
+}
+
+// 期間フィルタを共通化
+function applyPeriodFilter(records, periodValue, customFrom, customTo) {
+  if (!records.length) return {filtered: [], label: '', from: null, to: null};
+  const dates = records.map(r => r.date).filter(Boolean).sort();
+  if (dates.length === 0) return {filtered: records, label: '', from: null, to: null};
+  const latestDate = dates[dates.length-1];
+
+  if (periodValue === 'all') {
+    return {filtered: records, label: '全期間', from: dates[0], to: latestDate};
+  }
+  if (periodValue === 'custom') {
+    const from = customFrom || dates[0];
+    const to = customTo || latestDate;
+    const filtered = records.filter(r => r.date >= from && r.date <= to);
+    return {filtered, label: 'カスタム', from, to};
+  }
+  // 数値=日数
+  const days = parseInt(periodValue, 10);
+  const latestDateObj = new Date(latestDate);
+  const cutoff = new Date(latestDateObj);
+  cutoff.setDate(cutoff.getDate() - (days - 1));
+  const cutoffStr = cutoff.toISOString().slice(0,10);
+  const filtered = records.filter(r => r.date >= cutoffStr);
+  const labels = {'7':'直近1週間', '30':'直近1ヶ月', '90':'直近3ヶ月'};
+  return {filtered, label: labels[periodValue] || `直近${days}日`, from: cutoffStr, to: latestDate};
+}
+
+// 指定会場・期間での着順別出現率を計算
+function calcFinishRates(records, venue) {
+  const target = venue ? records.filter(r => r.venue === venue) : records;
+  const total = target.length;
+  const counts = [];
+  for (let lane = 1; lane <= 6; lane++) {
+    counts.push({
+      lane,
+      first: target.filter(r => r.first === lane).length,
+      second: target.filter(r => r.second === lane).length,
+      third: target.filter(r => r.third === lane).length,
+    });
+  }
+  return {total, counts};
+}
+
+// グレード・レース種別・R番号フィルタを適用する関数
+function applyAllFilters(records, grade, raceType, raceNo) {
+  let filtered = records;
+  if (grade && grade !== 'all') {
+    filtered = filtered.filter(r => r.grade === grade);
+  }
+  if (raceType && raceType !== 'all') {
+    filtered = filtered.filter(r => r.raceType === raceType);
+  }
+  if (raceNo && raceNo !== 'all') {
+    const num = parseInt(raceNo, 10);
+    if (!isNaN(num)) filtered = filtered.filter(r => r.raceNo === num);
+  }
+  return filtered;
+}
+
+// 互換のために旧名も残す
+function applyGradeRaceTypeFilter(records, grade, raceType) {
+  return applyAllFilters(records, grade, raceType, null);
+}
+
+// トレンド集計と表示
+function renderTrends() {
+  const all = state.raceResults || [];
+  document.getElementById('race-count').textContent = all.length;
+
+  if (all.length === 0) {
+    document.getElementById('race-range').textContent = '―';
+    document.getElementById('race-venue-count').textContent = 0;
+    document.getElementById('venue-trends-tbody').innerHTML = '<tr><td colspan="10" style="color:var(--muted);padding:20px">データがありません</td></tr>';
+    document.getElementById('finish-rate-tbody').innerHTML = '<tr><td colspan="5" style="color:var(--muted)">データがありません</td></tr>';
+    document.getElementById('finish-rate-summary').innerHTML = '';
+    populateDayTrendSelectors([]);
+    populateFinishRateVenue();
+    return;
+  }
+
+  const dates = [...new Set(all.map(r => r.date))].sort();
+  document.getElementById('race-range').textContent = `${dates[0]} 〜 ${dates[dates.length-1]}`;
+  document.getElementById('race-venue-count').textContent = new Set(all.map(r => r.venue)).size;
+
+  // 期間フィルタ
+  const periodValue = document.getElementById('trend-period').value;
+  document.getElementById('trend-custom-range').style.display = periodValue === 'custom' ? 'flex' : 'none';
+  const customFrom = document.getElementById('trend-from').value;
+  const customTo = document.getElementById('trend-to').value;
+  let {filtered, label, from, to} = applyPeriodFilter(all, periodValue, customFrom, customTo);
+
+  // グレード・種別・R番号フィルタ
+  const grade = document.getElementById('trend-grade').value;
+  const raceType = document.getElementById('trend-racetype').value;
+  const raceNoFilter = document.getElementById('trend-raceno').value;
+  filtered = applyAllFilters(filtered, grade, raceType, raceNoFilter);
+
+  const gradeLabel = grade === 'all' ? '' : ` / ${grade}`;
+  const typeLabel = raceType === 'all' ? '' : ` / ${raceType}`;
+  const rnLabel = raceNoFilter === 'all' ? '' : ` / ${raceNoFilter}R`;
+  document.getElementById('trend-period-info').textContent =
+    from && to ? `(${from} 〜 ${to}${gradeLabel}${typeLabel}${rnLabel}, ${filtered.length}R)` : `(${filtered.length}R${gradeLabel}${typeLabel}${rnLabel})`;
+
+  // 会場別集計
+  const byVenue = {};
+  filtered.forEach(r => {
+    if (!byVenue[r.venue]) {
+      byVenue[r.venue] = {
+        count: 0,
+        firstByLane: [0,0,0,0,0,0,0],
+        manshuu: 0,
+        totalPayout: 0,
+      };
+    }
+    const s = byVenue[r.venue];
+    s.count++;
+    s.firstByLane[r.first]++;
+    if (r.trifectaPayout >= 10000) s.manshuu++;
+    s.totalPayout += r.trifectaPayout;
+  });
+
+  const venueOrder = state.venues.map(v => v.name);
+  const tbody = document.getElementById('venue-trends-tbody');
+  tbody.innerHTML = '';
+  venueOrder.forEach(v => {
+    const s = byVenue[v];
+    if (!s) return;
+    const tr = document.createElement('tr');
+    const lanePcts = [];
+    for (let i = 1; i <= 6; i++) {
+      lanePcts.push(s.firstByLane[i] / s.count * 100);
+    }
+    const c1 = lanePcts[0];
+    const c1Color = c1 >= 60 ? 'var(--success)' : c1 < 50 ? 'var(--danger)' : 'var(--warning)';
+    const manshuuRate = s.manshuu / s.count * 100;
+    const manColor = manshuuRate >= 20 ? 'var(--danger)' : manshuuRate >= 10 ? 'var(--warning)' : 'var(--muted)';
+    tr.innerHTML = `
+      <td style="text-align:left;font-weight:600">${v}</td>
+      <td>${s.count}</td>
+      <td style="color:${c1Color};font-weight:700">${lanePcts[0].toFixed(0)}%</td>
+      <td>${lanePcts[1].toFixed(0)}%</td>
+      <td>${lanePcts[2].toFixed(0)}%</td>
+      <td>${lanePcts[3].toFixed(0)}%</td>
+      <td>${lanePcts[4].toFixed(0)}%</td>
+      <td>${lanePcts[5].toFixed(0)}%</td>
+      <td style="color:${manColor};font-weight:600">${manshuuRate.toFixed(0)}%</td>
+      <td>¥${Math.round(s.totalPayout / s.count).toLocaleString()}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+  if (tbody.innerHTML === '') {
+    tbody.innerHTML = '<tr><td colspan="10" style="color:var(--muted)">該当条件のデータがありません</td></tr>';
+  }
+
+  populateFinishRateVenue();
+  renderFinishRates();
+  populateDayTrendSelectors(filtered);
+}
+
+function populateFinishRateVenue() {
+  const sel = document.getElementById('finish-rate-venue');
+  if (!sel) return;
+  const current = sel.value;
+  sel.innerHTML = '';
+  const venuesWithData = new Set((state.raceResults || []).map(r => r.venue));
+  state.venues.filter(v => venuesWithData.has(v.name)).forEach(v => {
+    const o = document.createElement('option');
+    o.value = v.name; o.textContent = v.name;
+    sel.appendChild(o);
+  });
+  if (current && venuesWithData.has(current)) sel.value = current;
+  else if (sel.options.length > 0) sel.value = sel.options[0].value;
+  // R別集計の会場セレクタも同期
+  populateRaceNoVenue();
+}
+
+function renderFinishRates() {
+  const venue = document.getElementById('finish-rate-venue')?.value;
+  const periodValue = document.getElementById('trend-period').value;
+  const customFrom = document.getElementById('trend-from').value;
+  const customTo = document.getElementById('trend-to').value;
+  const grade = document.getElementById('trend-grade').value;
+  const raceType = document.getElementById('trend-racetype').value;
+  const raceNoFilter = document.getElementById('trend-raceno').value;
+  let {filtered, from, to} = applyPeriodFilter(state.raceResults || [], periodValue, customFrom, customTo);
+  filtered = applyAllFilters(filtered, grade, raceType, raceNoFilter);
+  const tbody = document.getElementById('finish-rate-tbody');
+  const summaryEl = document.getElementById('finish-rate-summary');
+  const infoEl = document.getElementById('finish-rate-info');
+
+  if (!venue || filtered.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="5" style="color:var(--muted)">データがありません</td></tr>';
+    if (summaryEl) summaryEl.innerHTML = '';
+    if (infoEl) infoEl.textContent = '';
+    return;
+  }
+
+  const {total, counts} = calcFinishRates(filtered, venue);
+  const gradeLabel = grade === 'all' ? '' : ` / ${grade}`;
+  const typeLabel = raceType === 'all' ? '' : ` / ${raceType}`;
+  const rnLabel = raceNoFilter === 'all' ? '' : ` / ${raceNoFilter}R`;
+  if (infoEl) infoEl.textContent = `(${venue}, ${from} 〜 ${to}${gradeLabel}${typeLabel}${rnLabel}, ${total}R)`;
+
+  if (total === 0) {
+    tbody.innerHTML = `<tr><td colspan="5" style="color:var(--muted)">該当条件のデータがありません</td></tr>`;
+    if (summaryEl) summaryEl.innerHTML = '';
+    return;
+  }
+
+  tbody.innerHTML = '';
+  counts.forEach(c => {
+    const firstPct = c.first / total * 100;
+    const secondPct = c.second / total * 100;
+    const thirdPct = c.third / total * 100;
+    const top3Pct = (c.first + c.second + c.third) / total * 100;
+    const pctColor = (p, base) => p >= base * 1.3 ? 'var(--success)' : p < base * 0.7 ? 'var(--danger)' : '';
+    const base = 16.67;
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td style="font-weight:700;color:var(--accent)">${c.lane}号艇</td>
+      <td style="color:${pctColor(firstPct, base)}"><b>${firstPct.toFixed(1)}%</b> <span style="color:var(--muted);font-size:11px">(${c.first}回)</span></td>
+      <td style="color:${pctColor(secondPct, base)}"><b>${secondPct.toFixed(1)}%</b> <span style="color:var(--muted);font-size:11px">(${c.second}回)</span></td>
+      <td style="color:${pctColor(thirdPct, base)}"><b>${thirdPct.toFixed(1)}%</b> <span style="color:var(--muted);font-size:11px">(${c.third}回)</span></td>
+      <td><b>${top3Pct.toFixed(1)}%</b></td>
+    `;
+    tbody.appendChild(tr);
+  });
+
+  const top1st = [...counts].sort((a,b)=>b.first-a.first)[0];
+  const top2nd = [...counts].sort((a,b)=>b.second-a.second)[0];
+  const top3rd = [...counts].sort((a,b)=>b.third-a.third)[0];
+  if (summaryEl) {
+    summaryEl.innerHTML = `
+      <div style="padding:14px; background:var(--panel-2); border-radius:8px; display:flex; gap:18px; flex-wrap:wrap; align-items:center">
+        <span style="color:var(--accent);font-weight:600">🎯 過去データ予測の候補1:</span>
+        <span>1着 → <b style="color:var(--success);font-size:18px">${top1st.lane}号艇</b> <span style="color:var(--muted);font-size:12px">(${(top1st.first/total*100).toFixed(1)}%)</span></span>
+        <span>2着 → <b style="color:var(--warning);font-size:18px">${top2nd.lane}号艇</b> <span style="color:var(--muted);font-size:12px">(${(top2nd.second/total*100).toFixed(1)}%)</span></span>
+        <span>3着 → <b style="color:var(--accent);font-size:18px">${top3rd.lane}号艇</b> <span style="color:var(--muted);font-size:12px">(${(top3rd.third/total*100).toFixed(1)}%)</span></span>
+      </div>
+    `;
+  }
+
+  // R別集計も同じ会場で
+  renderRaceNumberBreakdown();
+}
+
+// R番号別の傾向表(会場別)
+function populateRaceNoVenue() {
+  const sel = document.getElementById('rn-venue');
+  if (!sel) return;
+  const current = sel.value;
+  sel.innerHTML = '';
+  const venuesWithData = new Set((state.raceResults || []).map(r => r.venue));
+  state.venues.filter(v => venuesWithData.has(v.name)).forEach(v => {
+    const o = document.createElement('option');
+    o.value = v.name; o.textContent = v.name;
+    sel.appendChild(o);
+  });
+  if (current && venuesWithData.has(current)) sel.value = current;
+  else if (sel.options.length > 0) sel.value = sel.options[0].value;
+}
+
+function renderRaceNumberBreakdown() {
+  const venue = document.getElementById('rn-venue')?.value;
+  const tbody = document.getElementById('rn-tbody');
+  const infoEl = document.getElementById('rn-info');
+  if (!tbody) return;
+
+  if (!venue) {
+    tbody.innerHTML = '<tr><td colspan="11" style="color:var(--muted)">会場を選択してください</td></tr>';
+    if (infoEl) infoEl.textContent = '';
+    return;
+  }
+
+  // 期間・グレード・種別フィルタ(R番号フィルタはここでは無視=各R別に集計するため)
+  const periodValue = document.getElementById('trend-period').value;
+  const customFrom = document.getElementById('trend-from').value;
+  const customTo = document.getElementById('trend-to').value;
+  const grade = document.getElementById('trend-grade').value;
+  const raceType = document.getElementById('trend-racetype').value;
+  let {filtered, from, to} = applyPeriodFilter(state.raceResults || [], periodValue, customFrom, customTo);
+  filtered = applyAllFilters(filtered, grade, raceType, 'all');  // R番号は固定しない
+  filtered = filtered.filter(r => r.venue === venue);
+
+  const gradeLabel = grade === 'all' ? '' : ` / ${grade}`;
+  const typeLabel = raceType === 'all' ? '' : ` / ${raceType}`;
+  if (infoEl) infoEl.textContent = `(${venue}, ${from} 〜 ${to}${gradeLabel}${typeLabel}, 計${filtered.length}R)`;
+
+  tbody.innerHTML = '';
+  for (let r = 1; r <= 12; r++) {
+    const rRaces = filtered.filter(x => x.raceNo === r);
+    const count = rRaces.length;
+    if (count === 0) {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td style="font-weight:700;color:var(--accent)">${r}R</td><td colspan="10" style="color:var(--muted);font-size:12px">データなし</td>`;
+      tbody.appendChild(tr);
+      continue;
+    }
+    const firstByLane = [0,0,0,0,0,0,0];
+    const secondByLane = [0,0,0,0,0,0,0];
+    const thirdByLane = [0,0,0,0,0,0,0];
+    let manshuu = 0;
+    rRaces.forEach(x => {
+      firstByLane[x.first]++;
+      secondByLane[x.second]++;
+      thirdByLane[x.third]++;
+      if (x.trifectaPayout >= 10000) manshuu++;
+    });
+    const lanePcts = [0,0,0,0,0,0,0];
+    for (let i = 1; i <= 6; i++) lanePcts[i] = firstByLane[i] / count * 100;
+    // 予測候補
+    let top1 = 1, top2 = 1, top3 = 1;
+    for (let i = 2; i <= 6; i++) {
+      if (firstByLane[i] > firstByLane[top1]) top1 = i;
+      if (secondByLane[i] > secondByLane[top2]) top2 = i;
+      if (thirdByLane[i] > thirdByLane[top3]) top3 = i;
+    }
+    const c1 = lanePcts[1];
+    const c1Color = c1 >= 60 ? 'var(--success)' : c1 < 50 ? 'var(--danger)' : 'var(--warning)';
+    const manshuuRate = manshuu / count * 100;
+    const manColor = manshuuRate >= 20 ? 'var(--danger)' : manshuuRate >= 10 ? 'var(--warning)' : 'var(--muted)';
+    const sampleColor = count < 10 ? 'var(--danger)' : count < 30 ? 'var(--warning)' : '';
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td style="font-weight:700;color:var(--accent)">${r}R</td>
+      <td style="color:${sampleColor}">${count}</td>
+      <td style="color:${c1Color};font-weight:700">${lanePcts[1].toFixed(0)}%</td>
+      <td>${lanePcts[2].toFixed(0)}%</td>
+      <td>${lanePcts[3].toFixed(0)}%</td>
+      <td>${lanePcts[4].toFixed(0)}%</td>
+      <td>${lanePcts[5].toFixed(0)}%</td>
+      <td>${lanePcts[6].toFixed(0)}%</td>
+      <td style="background:rgba(63,185,80,0.15);font-weight:700;color:var(--success)">${top1}号</td>
+      <td style="background:rgba(210,153,34,0.12);font-weight:700;color:var(--warning)">${top2}号</td>
+      <td style="background:rgba(88,166,255,0.12);font-weight:700;color:var(--accent)">${top3}号</td>
+      <td style="color:${manColor};font-weight:600">${manshuuRate.toFixed(0)}%</td>
+    `;
+    tbody.appendChild(tr);
+  }
+}
+
+// スコア表タブの「過去データ参考」セクション
+function renderScorePastReference(sortedFromCaller) {
+  const venue = document.getElementById('race-venue').value;
+  const contentEl = document.getElementById('score-past-content');
+  const infoEl = document.getElementById('score-past-info');
+  if (!contentEl) return;
+
+  const all = state.raceResults || [];
+  if (all.length === 0) {
+    contentEl.innerHTML = '<p class="note">過去レース結果がインポートされていません。「会場トレンド」タブから読み込んでください。</p>';
+    if (infoEl) infoEl.textContent = '';
+    return;
+  }
+
+  const periodValue = document.getElementById('score-past-period').value;
+  const grade = document.getElementById('score-past-grade').value;
+  const raceType = document.getElementById('score-past-racetype').value;
+  const raceNoSel = document.getElementById('score-past-raceno').value;
+  // 'auto'ならスコア表のR番号から取得("3R"→3)
+  let raceNoFilter = raceNoSel;
+  if (raceNoSel === 'auto') {
+    const rno = document.getElementById('race-no').value || '';
+    const m = rno.match(/(\d+)/);
+    raceNoFilter = m ? m[1] : 'all';
+  }
+  let {filtered, from, to} = applyPeriodFilter(all, periodValue);
+  filtered = applyAllFilters(filtered, grade, raceType, raceNoFilter);
+  const {total, counts} = calcFinishRates(filtered, venue);
+  const gradeLabel = grade === 'all' ? '' : ` / ${grade}`;
+  const typeLabel = raceType === 'all' ? '' : ` / ${raceType}`;
+  const rnLabel = raceNoFilter === 'all' ? '' : ` / ${raceNoFilter}R`;
+  const autoMark = raceNoSel === 'auto' ? ' (R自動)' : '';
+  if (infoEl) infoEl.textContent = total > 0 ? `(${venue}, ${from} 〜 ${to}${gradeLabel}${typeLabel}${rnLabel}${autoMark}, ${total}R)` : '';
+
+  if (total === 0) {
+    contentEl.innerHTML = `<p class="note">${venue}の該当条件のデータがありません</p>`;
+    return;
+  }
+
+  const top1st = [...counts].sort((a,b)=>b.first-a.first)[0];
+  const top2nd = [...counts].sort((a,b)=>b.second-a.second)[0];
+  const top3rd = [...counts].sort((a,b)=>b.third-a.third)[0];
+
+  if (!sortedFromCaller) {
+    contentEl.innerHTML = '<p class="note">スコア計算が必要です</p>';
+    return;
+  }
+  const sorted = sortedFromCaller;
+  const myHonmei = sorted[0].boat.no;
+  const myTaikou = sorted[1].boat.no;
+  const myThird = sorted[2].boat.no;
+
+  const match1 = top1st.lane === myHonmei;
+  const match2 = top2nd.lane === myTaikou;
+  const match3 = top3rd.lane === myThird;
+  const matchCount = (match1?1:0)+(match2?1:0)+(match3?1:0);
+
+  let verdictMsg, verdictColor;
+  if (matchCount === 3) {
+    verdictMsg = '🎯 完全一致：過去データと自分の予想が同じ。期待値高い'; verdictColor = 'var(--success)';
+  } else if (matchCount === 2) {
+    verdictMsg = '👍 概ね一致：方向性は同じ'; verdictColor = 'var(--success)';
+  } else if (matchCount === 1) {
+    verdictMsg = '🤔 部分一致：どこかにズレあり、要検証'; verdictColor = 'var(--warning)';
+  } else {
+    verdictMsg = '⚠️ 全くズレあり：自分の独自視点 or 見落としかも'; verdictColor = 'var(--danger)';
+  }
+
+  let html = `
+    <div style="display:grid; grid-template-columns: 1fr 1fr; gap:14px; margin-bottom:14px">
+      <div style="padding:12px; background:var(--panel-2); border-radius:8px">
+        <div style="color:var(--accent); font-weight:600; margin-bottom:8px; font-size:13px">📊 過去データ予測</div>
+        <div style="display:flex; flex-direction:column; gap:4px; font-size:13px">
+          <span>1着候補: <b style="color:var(--success)">${top1st.lane}号艇</b> (${(top1st.first/total*100).toFixed(0)}%)</span>
+          <span>2着候補: <b style="color:var(--warning)">${top2nd.lane}号艇</b> (${(top2nd.second/total*100).toFixed(0)}%)</span>
+          <span>3着候補: <b style="color:var(--accent)">${top3rd.lane}号艇</b> (${(top3rd.third/total*100).toFixed(0)}%)</span>
+        </div>
+      </div>
+      <div style="padding:12px; background:var(--panel-2); border-radius:8px">
+        <div style="color:var(--accent-2); font-weight:600; margin-bottom:8px; font-size:13px">🎯 自分のスコア予想</div>
+        <div style="display:flex; flex-direction:column; gap:4px; font-size:13px">
+          <span>本命: <b style="color:${match1?'var(--success)':'var(--danger)'}">${myHonmei}号艇</b> ${match1?'✓':'✗'}</span>
+          <span>対抗: <b style="color:${match2?'var(--success)':'var(--danger)'}">${myTaikou}号艇</b> ${match2?'✓':'✗'}</span>
+          <span>3番手: <b style="color:${match3?'var(--success)':'var(--danger)'}">${myThird}号艇</b> ${match3?'✓':'✗'}</span>
+        </div>
+      </div>
+    </div>
+    <div style="padding:12px; background:rgba(${matchCount>=2?'63,185,80':matchCount===1?'210,153,34':'248,81,73'},0.1); border-left:3px solid ${verdictColor}; border-radius:6px; font-weight:600; color:${verdictColor}">
+      ${verdictMsg}
+    </div>
+    <div style="margin-top:14px">
+      <div style="font-size:12px; color:var(--muted); margin-bottom:6px; font-weight:600">着順別出現率</div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>艇番</th><th>1着率</th><th>2着率</th><th>3着率</th><th>3着内</th></tr></thead>
+          <tbody>
+            ${counts.map(c => {
+              const f = (c.first/total*100).toFixed(0);
+              const s = (c.second/total*100).toFixed(0);
+              const t = (c.third/total*100).toFixed(0);
+              const i3 = ((c.first+c.second+c.third)/total*100).toFixed(0);
+              const isTop1 = c.lane === top1st.lane;
+              const isTop2 = c.lane === top2nd.lane;
+              const isTop3 = c.lane === top3rd.lane;
+              return `<tr>
+                <td style="font-weight:700;color:var(--accent)">${c.lane}</td>
+                <td ${isTop1?'style="background:rgba(63,185,80,0.15);font-weight:700"':''}>${f}%</td>
+                <td ${isTop2?'style="background:rgba(210,153,34,0.15);font-weight:700"':''}>${s}%</td>
+                <td ${isTop3?'style="background:rgba(88,166,255,0.15);font-weight:700"':''}>${t}%</td>
+                <td>${i3}%</td>
+              </tr>`;
+            }).join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  `;
+
+  contentEl.innerHTML = html;
+}
+
+function populateDayTrendSelectors(records) {
+  // 日付選択
+  const dateSel = document.getElementById('day-trend-date');
+  if (records.length > 0) {
+    const latestDate = records.reduce((max, r) => r.date > max ? r.date : max, records[0].date);
+    if (!dateSel.value) dateSel.value = latestDate;
+  }
+  // 会場選択
+  const venueSel = document.getElementById('day-trend-venue');
+  const currentVal = venueSel.value;
+  venueSel.innerHTML = '<option value="">― 全会場 ―</option>';
+  state.venues.forEach(v => {
+    const o = document.createElement('option');
+    o.value = v.name; o.textContent = v.name;
+    venueSel.appendChild(o);
+  });
+  if (currentVal) venueSel.value = currentVal;
+  renderDayTrend();
+}
+
+function renderDayTrend() {
+  const date = document.getElementById('day-trend-date').value;
+  const venue = document.getElementById('day-trend-venue').value;
+  const resultEl = document.getElementById('day-trend-result');
+
+  if (!date) {
+    resultEl.innerHTML = '<p class="note">日付を選択してください</p>';
+    return;
+  }
+
+  let dayRaces = state.raceResults.filter(r => r.date === date);
+  if (venue) dayRaces = dayRaces.filter(r => r.venue === venue);
+
+  if (dayRaces.length === 0) {
+    resultEl.innerHTML = `<p class="note">${date} ${venue || '(全会場)'} のデータがありません</p>`;
+    return;
+  }
+
+  // 会場ごとに集計
+  const byVenue = {};
+  dayRaces.forEach(r => {
+    if (!byVenue[r.venue]) byVenue[r.venue] = [];
+    byVenue[r.venue].push(r);
+  });
+
+  let html = '';
+  Object.entries(byVenue).forEach(([v, races]) => {
+    races.sort((a,b) => a.raceNo - b.raceNo);
+    const lastR = races[races.length-1].raceNo;
+    const firstByLane = [0,0,0,0,0,0,0];
+    let manshuu = 0, totalPay = 0;
+    races.forEach(r => {
+      firstByLane[r.first]++;
+      if (r.trifectaPayout >= 10000) manshuu++;
+      totalPay += r.trifectaPayout;
+    });
+    const c1Rate = firstByLane[1] / races.length * 100;
+    const manRate = manshuu / races.length * 100;
+    const avgPay = totalPay / races.length;
+    let mood;
+    if (c1Rate >= 70) mood = '<span style="color:var(--success)">🟢 1号艇強い（固め傾向）</span>';
+    else if (c1Rate >= 50) mood = '<span style="color:var(--warning)">🟡 標準的</span>';
+    else mood = '<span style="color:var(--danger)">🔴 1号艇苦戦（荒れ傾向）</span>';
+
+    html += `
+      <div class="panel" style="margin-bottom:14px; background:var(--panel-2)">
+        <h3 style="color:var(--accent)">${v} (1R〜${lastR}R, ${races.length}レース)</h3>
+        <div style="margin-bottom:10px">${mood}</div>
+        <div style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:14px;font-size:13px">
+          <span>1号艇1着率: <b style="color:var(--accent)">${c1Rate.toFixed(0)}%</b></span>
+          <span>万舟率: <b>${manRate.toFixed(0)}%</b></span>
+          <span>平均配当: <b>¥${Math.round(avgPay).toLocaleString()}</b></span>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>R</th><th>1着</th><th>2着</th><th>3着</th><th>3連単配当</th></tr></thead>
+            <tbody>
+              ${races.map(r => {
+                const big = r.trifectaPayout >= 10000;
+                return `
+                  <tr ${big?'style="background:rgba(248,81,73,0.08)"':''}>
+                    <td style="font-weight:600">${r.raceNo}R</td>
+                    <td>${r.first}</td>
+                    <td>${r.second}</td>
+                    <td>${r.third}</td>
+                    <td style="${big?'color:var(--danger);font-weight:700':''}">¥${r.trifectaPayout.toLocaleString()}${big?' 🔥':''}</td>
+                  </tr>
+                `;
+              }).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    `;
+  });
+
+  resultEl.innerHTML = html;
+}
+
+
+// ============== Prediction Patterns ==============
+let predictionPatterns = [];
+
+function addPredictionPattern(source) {
+  let pattern = {
+    id: Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+    source: source,
+    label: '',
+    first: '',
+    second: '',
+    third: '',
+    bet: 1000,
+    type: '3連単',
+  };
+
+  if (source === 'tool') {
+    const {sorted} = computeScores();
+    pattern.label = 'ツール予測';
+    pattern.first = String(sorted[0].boat.no);
+    pattern.second = String(sorted[1].boat.no);
+    pattern.third = String(sorted[2].boat.no);
+  } else if (source === 'past') {
+    const venue = document.getElementById('race-venue').value;
+    const all = state.raceResults || [];
+    if (all.length === 0) {
+      showToast('過去レース結果がインポートされていません', true);
+      return;
+    }
+    const periodValue = document.getElementById('score-past-period').value;
+    const grade = document.getElementById('score-past-grade').value;
+    const raceType = document.getElementById('score-past-racetype').value;
+    const raceNoSel = document.getElementById('score-past-raceno').value;
+    let raceNoFilter = raceNoSel;
+    if (raceNoSel === 'auto') {
+      const rno = document.getElementById('race-no').value || '';
+      const m = rno.match(/(\d+)/);
+      raceNoFilter = m ? m[1] : 'all';
+    }
+    let {filtered} = applyPeriodFilter(all, periodValue);
+    filtered = applyAllFilters(filtered, grade, raceType, raceNoFilter);
+    const {total, counts} = calcFinishRates(filtered, venue);
+    if (total === 0) {
+      showToast(`${venue}の該当条件のデータがありません`, true);
+      return;
+    }
+    const top1 = [...counts].sort((a,b)=>b.first-a.first)[0];
+    const top2 = [...counts].sort((a,b)=>b.second-a.second)[0];
+    const top3 = [...counts].sort((a,b)=>b.third-a.third)[0];
+    pattern.label = '過去データ予測';
+    pattern.first = String(top1.lane);
+    pattern.second = String(top2.lane);
+    pattern.third = String(top3.lane);
+  } else {
+    pattern.label = '自分の予想';
+  }
+
+  predictionPatterns.push(pattern);
+  renderPredictionPatterns();
+}
+
+function deletePredictionPattern(id) {
+  predictionPatterns = predictionPatterns.filter(p => p.id !== id);
+  renderPredictionPatterns();
+}
+
+function updatePredictionPattern(id, field, value) {
+  const p = predictionPatterns.find(p => p.id === id);
+  if (!p) return;
+  if (field === 'bet') p[field] = +value || 0;
+  else p[field] = value;
+  renderPredictionSummary();
+}
+
+function renderPredictionPatterns() {
+  const container = document.getElementById('prediction-patterns-list');
+  if (!container) return;
+  if (predictionPatterns.length === 0) {
+    container.innerHTML = '<p class="note">予想パターンを追加してください。「ツール予測」「過去データ予測」「自分の予想」のいずれかから始めるとスムーズです。</p>';
+    renderPredictionSummary();
+    return;
+  }
+
+  container.innerHTML = '';
+  predictionPatterns.forEach((p, idx) => {
+    const sourceColor = p.source === 'tool' ? 'var(--accent)' : p.source === 'past' ? 'var(--accent-2)' : 'var(--success)';
+    const sourceLabel = p.source === 'tool' ? '🎯ツール' : p.source === 'past' ? '📊過去' : '✏️手動';
+    const div = document.createElement('div');
+    div.style.cssText = 'padding:12px;background:var(--panel-2);border-radius:8px;margin-bottom:10px;border-left:3px solid '+sourceColor;
+    div.innerHTML = `
+      <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;flex-wrap:wrap">
+        <span style="background:${sourceColor};color:white;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600">${sourceLabel}</span>
+        <input type="text" data-pid="${p.id}" data-pfield="label" value="${p.label}" placeholder="ラベル"
+          style="flex:1;min-width:120px;font-weight:600">
+        <button class="btn btn-danger" style="padding:4px 8px;font-size:11px" onclick="deletePredictionPattern('${p.id}')">削除</button>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <label style="font-size:12px;color:var(--muted)">買い方:</label>
+        <select data-pid="${p.id}" data-pfield="type" style="max-width:120px">
+          <option ${p.type==='3連単'?'selected':''}>3連単</option>
+          <option ${p.type==='3連複'?'selected':''}>3連複</option>
+          <option ${p.type==='2連単'?'selected':''}>2連単</option>
+          <option ${p.type==='2連複'?'selected':''}>2連複</option>
+          <option ${p.type==='拡連複'?'selected':''}>拡連複</option>
+          <option ${p.type==='複勝'?'selected':''}>複勝</option>
+          <option ${p.type==='単勝'?'selected':''}>単勝</option>
+        </select>
+        <label style="font-size:12px;color:var(--muted)">1着:</label>
+        <input type="text" data-pid="${p.id}" data-pfield="first" value="${p.first}" placeholder="例: 1 or 1,2"
+          style="width:90px;text-align:center">
+        <label style="font-size:12px;color:var(--muted)">2着:</label>
+        <input type="text" data-pid="${p.id}" data-pfield="second" value="${p.second}" placeholder="例: 2,3"
+          style="width:90px;text-align:center">
+        <label style="font-size:12px;color:var(--muted)">3着:</label>
+        <input type="text" data-pid="${p.id}" data-pfield="third" value="${p.third}" placeholder="例: 3,4,5"
+          style="width:120px;text-align:center">
+        <label style="font-size:12px;color:var(--muted)">投資/点:</label>
+        <input type="number" data-pid="${p.id}" data-pfield="bet" value="${p.bet}" style="width:80px;text-align:center">円
+      </div>
+      <div style="margin-top:6px;font-size:12px;color:var(--muted)" id="combo-${p.id}"></div>
+    `;
+    container.appendChild(div);
+  });
+
+  container.querySelectorAll('input, select').forEach(el => {
+    el.addEventListener('input', (e) => {
+      updatePredictionPattern(e.target.dataset.pid, e.target.dataset.pfield, e.target.value);
+      updateComboCount(e.target.dataset.pid);
+    });
+  });
+
+  predictionPatterns.forEach(p => updateComboCount(p.id));
+  renderPredictionSummary();
+}
+
+function parseLanes(str) {
+  return (str || '').split(/[,\s、]+/).map(x => parseInt(x.trim(), 10)).filter(x => x >= 1 && x <= 6);
+}
+
+function calcCombinations(pattern) {
+  const f = parseLanes(pattern.first);
+  const s = parseLanes(pattern.second);
+  const t = parseLanes(pattern.third);
+  let count = 0;
+  if (pattern.type === '3連単') {
+    f.forEach(x => s.forEach(y => t.forEach(z => {
+      if (x !== y && y !== z && x !== z) count++;
+    })));
+  } else if (pattern.type === '3連複') {
+    const all = [...new Set([...f, ...s, ...t])];
+    for (let i = 0; i < all.length; i++)
+      for (let j = i+1; j < all.length; j++)
+        for (let k = j+1; k < all.length; k++) count++;
+  } else if (pattern.type === '2連単') {
+    f.forEach(x => s.forEach(y => { if (x !== y) count++; }));
+  } else if (pattern.type === '2連複' || pattern.type === '拡連複') {
+    const all = [...new Set([...f, ...s])];
+    for (let i = 0; i < all.length; i++)
+      for (let j = i+1; j < all.length; j++) count++;
+  } else if (pattern.type === '単勝' || pattern.type === '複勝') {
+    count = f.length;
+  }
+  return count;
+}
+
+function updateComboCount(id) {
+  const p = predictionPatterns.find(p => p.id === id);
+  if (!p) return;
+  const el = document.getElementById(`combo-${id}`);
+  if (!el) return;
+  const count = calcCombinations(p);
+  const total = count * p.bet;
+  el.innerHTML = count > 0
+    ? `${count}点 × ${p.bet}円 = <b style="color:var(--accent)">${total.toLocaleString()}円</b>`
+    : '<span style="color:var(--danger)">買い目を正しく入力してください</span>';
+}
+
+function renderPredictionSummary() {
+  const el = document.getElementById('prediction-summary');
+  if (!el) return;
+  if (predictionPatterns.length === 0) { el.innerHTML = ''; return; }
+  let totalCount = 0, totalBet = 0;
+  predictionPatterns.forEach(p => {
+    const c = calcCombinations(p);
+    totalCount += c;
+    totalBet += c * p.bet;
+  });
+  const overBudget = totalBet > 10000;
+  el.innerHTML = `
+    <div style="padding:14px;background:var(--panel-2);border-radius:8px;display:flex;gap:18px;align-items:center;flex-wrap:wrap">
+      <span style="color:var(--accent);font-weight:600">📋 合計</span>
+      <span>パターン数: <b>${predictionPatterns.length}</b></span>
+      <span>総点数: <b>${totalCount}点</b></span>
+      <span>合計投資額: <b style="font-size:18px;color:${overBudget?'var(--danger)':'var(--success)'}">¥${totalBet.toLocaleString()}</b></span>
+      ${overBudget ? '<span style="color:var(--danger);font-weight:600">⚠️ 1万円超過</span>' : ''}
+    </div>
+  `;
+}
+
+
+function showTab(tab) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.add('hide'));
+  document.getElementById('tab-' + tab).classList.remove('hide');
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+  if (tab === 'summary') renderSummary();
+  if (tab === 'predictions') renderPredictions();
+  if (tab === 'results') renderResults();
+  if (tab === 'trends') renderTrends();
+}
+
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => showTab(btn.dataset.tab));
+});
+
+// ============== Toast ==============
+function showToast(msg, isError = false) {
+  const toast = document.getElementById('toast');
+  toast.textContent = msg;
+  toast.className = 'toast show' + (isError ? ' error' : '');
+  setTimeout(() => toast.classList.remove('show'), 2500);
+}
+
+// ============== Init ==============
+loadFromStorage();
+populateVenueSelect();
+document.getElementById('race-date').valueAsDate = new Date();
+document.getElementById('race-venue').value = '大村';
+renderSettings();
+renderVenuesTab();
+renderBoatsTable();
+renderBoatTags();
+renderPredictions();
+renderResults();
+renderSummary();
+renderPlayers();
+renderAutoTagRules();
+renderTrends();
+renderPredictionPatterns();
+computeScores();
+
+// 自動読み込み(autoloadが有効ならURLから取得)
+(async () => {
+  const settings = getUrlSettings();
+  if (settings.autoload && settings.url) {
+    await loadJsonFromUrl(true);  // silent mode
+  }
+})();
+
+// Player search
+document.getElementById('player-search').addEventListener('input', renderPlayers);
+
+// Trends listeners
+document.getElementById('trend-period').addEventListener('change', renderTrends);
+document.getElementById('trend-from').addEventListener('change', renderTrends);
+document.getElementById('trend-to').addEventListener('change', renderTrends);
+document.getElementById('trend-grade').addEventListener('change', renderTrends);
+document.getElementById('trend-racetype').addEventListener('change', renderTrends);
+document.getElementById('trend-raceno').addEventListener('change', renderTrends);
+document.getElementById('finish-rate-venue').addEventListener('change', renderFinishRates);
+document.getElementById('rn-venue').addEventListener('change', renderRaceNumberBreakdown);
+document.getElementById('day-trend-date').addEventListener('change', renderDayTrend);
+document.getElementById('day-trend-venue').addEventListener('change', renderDayTrend);
+document.getElementById('score-past-period').addEventListener('change', () => computeScores());
+document.getElementById('score-past-grade').addEventListener('change', () => computeScores());
+document.getElementById('score-past-racetype').addEventListener('change', () => computeScores());
+document.getElementById('score-past-raceno').addEventListener('change', () => computeScores());
+
+// Modal close on background click
+document.getElementById('tag-modal').addEventListener('click', (e) => {
+  if (e.target.id === 'tag-modal') closeTagModal();
+});
+document.getElementById('url-load-modal').addEventListener('click', (e) => {
+  if (e.target.id === 'url-load-modal') closeUrlLoadModal();
+});
+// ESC key to close modal
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    if (!document.getElementById('tag-modal').classList.contains('hide')) {
+      closeTagModal();
+    }
+    if (!document.getElementById('url-load-modal').classList.contains('hide')) {
+      closeUrlLoadModal();
+    }
+    const pdm = document.getElementById('player-detail-modal');
+    if (pdm && !pdm.classList.contains('hide')) {
+      closePlayerDetailModal();
+    }
+  }
+});
+
+// Race info change listeners
+['race-date','race-venue','race-no','race-weather','race-windDir','race-windSpeed','race-wave','race-temp','race-waterTemp'].forEach(id => {
+  document.getElementById(id).addEventListener('input', computeScores);
+});
+</script>
+
+</body>
+</html>
